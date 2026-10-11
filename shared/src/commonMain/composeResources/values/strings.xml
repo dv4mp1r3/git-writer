@@ -97,6 +97,9 @@
     <string name="settings_font_title">Font &amp; Typography</string>
     <string name="settings_font_subtitle">Font family</string>
     <string name="settings_font_family_label">Font family</string>
+    <string name="settings_editor_width_title">Editor width</string>
+    <string name="settings_editor_width_subtitle">How wide the note editor is</string>
+    <string name="settings_editor_full_width_label">Full width</string>
     <string name="settings_font_default">Default</string>
     <string name="settings_font_monospace">Monospace</string>
     <string name="settings_font_serif">Serif</string>

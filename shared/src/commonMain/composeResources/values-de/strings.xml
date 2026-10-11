@@ -97,6 +97,9 @@
     <string name="settings_font_title">Schrift &amp; Typografie</string>
     <string name="settings_font_subtitle">Schriftfamilie</string>
     <string name="settings_font_family_label">Schriftfamilie</string>
+    <string name="settings_editor_width_title">Editorbreite</string>
+    <string name="settings_editor_width_subtitle">Wie breit der Notizeditor ist</string>
+    <string name="settings_editor_full_width_label">Volle Breite</string>
     <string name="settings_font_default">Standard</string>
     <string name="settings_font_monospace">Monospace</string>
     <string name="settings_font_serif">Serif</string>

@@ -97,6 +97,9 @@
     <string name="settings_font_title">Písmo a typografie</string>
     <string name="settings_font_subtitle">Rodina písma</string>
     <string name="settings_font_family_label">Rodina písma</string>
+    <string name="settings_editor_width_title">Šířka editoru</string>
+    <string name="settings_editor_width_subtitle">Jak široký je editor poznámek</string>
+    <string name="settings_editor_full_width_label">Celá šířka</string>
     <string name="settings_font_default">Výchozí</string>
     <string name="settings_font_monospace">Monospace</string>
     <string name="settings_font_serif">Patkové</string>

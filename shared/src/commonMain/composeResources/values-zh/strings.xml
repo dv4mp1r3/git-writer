@@ -97,6 +97,9 @@
     <string name="settings_font_title">字体与排版</string>
     <string name="settings_font_subtitle">字体系列</string>
     <string name="settings_font_family_label">字体系列</string>
+    <string name="settings_editor_width_title">编辑器宽度</string>
+    <string name="settings_editor_width_subtitle">笔记编辑器的宽度</string>
+    <string name="settings_editor_full_width_label">全宽</string>
     <string name="settings_font_default">默认</string>
     <string name="settings_font_monospace">等宽</string>
     <string name="settings_font_serif">衬线</string>

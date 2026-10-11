@@ -2,8 +2,6 @@
 
 > high priority
 
-- add possibility for full width text area - add it to settings
-
 > medium priority
 
 - make latex blocks work also in the middle of the block, not only on empty block
