@@ -2,12 +2,11 @@
 
 > high priority
 
-- add some reasonable release pipeline so that it can be done easily
+- add possibility for full width text area - add it to settings
 
 > medium priority
 
 - make latex blocks work also in the middle of the block, not only on empty block
-- add possibility for full width text area - add it to settings
 - make images resizable in the editor
 - when note is opened and image is clicked from the sidebar, make the image appear on new tab
 - when there is a merge conflict, add preview on the conflicted files and content
