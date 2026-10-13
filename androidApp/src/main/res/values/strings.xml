@@ -1,3 +1,6 @@
 <resources>
     <string name="app_name">GitWriter</string>
+    <string name="widget_description">Quick access to notes from the active notebook</string>
+    <string name="widget_no_notebook">No active notebook. Tap to open GitWriter.</string>
+    <string name="widget_no_notes">No notes in this notebook yet.</string>
 </resources>

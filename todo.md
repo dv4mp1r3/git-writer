@@ -4,13 +4,12 @@
 
 > medium priority
 
-- make latex blocks work also in the middle of the block, not only on empty block
+- add note linking
 - make images resizable in the editor
-- when note is opened and image is clicked from the sidebar, make the image appear on new tab
-- when there is a merge conflict, add preview on the conflicted files and content
+- add possibility to export notes to pdf
 - save the expanded folder to database (so that the file tree looks the same on app open)+ save all tabs that were opened
+- make latex blocks work also in the middle of the block, not only on empty block
 - empty lines at the end are removed on file reload
-- add encryption possibility, this looks nice but probably wont work with iOS devices (<https://github.com/cryptomator/cryptofs>)
 - make file header like in obsidian - the file heading will show the file name changing the header will change the filename
 - lists are splitted into multiple blocks, but when reloaded it is only one list block (no other components are in the middle of it)
 - add something like .gitwriter file to each notebook folder, there will be the remote credentials etc., it wont be commited, but comes in handy when you want to open folder with remote already configured
@@ -24,10 +23,12 @@
 - in the settings as possibility to change the commit message
 - add nucleus fs-watcher (or other fs watcher)
 - schedule sync, turn on in settings that the sync will happend eg. every 10 minutes
+- add encryption possibility, this looks nice but probably wont work with iOS devices (<https://github.com/cryptomator/cryptofs>)
 
 > other ideas - lower priority
 
-- add possibility to export notes to pdf
+- when there is a merge conflict, add preview on the conflicted files and content
+- when note is opened and image is clicked from the sidebar, make the image appear on new tab
 - look at the CRDT Automerge possibility to automerge notes  
 - share notes on mobile? like normal share button to quickshare, email ...
 - in the file tree show which files are modified (based on the git status)
