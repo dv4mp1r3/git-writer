@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.center
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.graphics.graphicsLayer
@@ -25,6 +26,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.toSize
 import coil3.compose.rememberAsyncImagePainter
+import dev.jotalac.feature.editor.platform.trackpadPinchZoom
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.TransformableState
 import io.github.vinceglb.filekit.PlatformFile
@@ -67,9 +69,15 @@ fun ZoomableImage(
         pan = Offset(x.coerceIn(-bounds.x, bounds.x), y.coerceIn(-bounds.y, bounds.y))
     }
 
-    fun zoomBy(factor: Float) {
-        zoom = (zoom * factor).coerceIn(MIN_ZOOM, MAX_ZOOM)
-        moveTo(pan.x, pan.y)
+    // zooms keeping the image point under focus (cursor / fingers) in place
+    fun zoomBy(factor: Float, focus: Offset) {
+        val newZoom = (zoom * factor).coerceIn(MIN_ZOOM, MAX_ZOOM)
+        // graphicsLayer scales around the center, so the focus is measured from it
+        val focusFromCenter = focus - viewport.center
+        val newPan = focusFromCenter - (focusFromCenter - pan) * (newZoom / zoom)
+
+        zoom = newZoom
+        moveTo(newPan.x, newPan.y)
     }
 
     Box(
@@ -82,18 +90,21 @@ fun ZoomableImage(
                         val event = awaitPointerEvent()
                         if (event.type != PointerEventType.Scroll) continue
 
-                        val delta = event.changes.firstOrNull()?.scrollDelta ?: Offset.Zero
-                        if (delta == Offset.Zero) continue
+                        // ctrl + scroll (also Windows touchpad pinch) is already zoomed and consumed by
+                        // transformable below, which gets the event first
+                        val change = event.changes.firstOrNull() ?: continue
+                        if (change.isConsumed || change.scrollDelta.y == 0f) continue
 
-                        zoomBy(exp(-delta.y * ZOOM_SPEED))
+                        zoomBy(exp(-change.scrollDelta.y * ZOOM_SPEED), change.position)
                         event.changes.forEach { it.consume() }
                     }
                 }
             }
+            .trackpadPinchZoom { zoomChange, focus -> zoomBy(zoomChange, focus) }
             .transformable(
                 remember {
                     TransformableState { centroid, zoomChange, panChange, rotationChange ->
-                        zoomBy(zoomChange)
+                        zoomBy(zoomChange, centroid)
                         moveTo(pan.x + panChange.x, pan.y + panChange.y)
                     }
                 }

@@ -20,9 +20,24 @@ dependencies {
     implementation(libs.jna)
 }
 
+// add flag for macos trackpad gestures (pink to zoom work)
+val macOsTrackpadJvmArgs = if (System.getProperty("os.name").startsWith("Mac")) {
+    listOf("--add-exports=java.desktop/com.apple.eawt.event=ALL-UNNAMED")
+} else {
+    emptyList()
+}
+
+//// hot reload (hotRun / hotDev) runs its own tasks, which do not read compose.desktop.application.jvmArgs
+//tasks.withType<JavaExec>()
+//    .matching { it.name.startsWith("hot") }
+//    .configureEach { jvmArgs(macOsTrackpadJvmArgs) }
+//
 compose.desktop {
     application {
         mainClass = "dev.jotalac.MainKt"
+
+        // used by `run` and written into the packaged app
+        jvmArgs += macOsTrackpadJvmArgs
 
         nativeDistributions {
             packageName = project.findProperty("app.name.display") as? String ?: "GitWriter"
