@@ -1,0 +1,75 @@
+# Runs the tests and builds every app on each push to master and on pull requests into it.
+#
+# Two jobs in parallel:
+#   - desktop + android: everything that runs on the JVM, on Linux (the fastest runner to start)
+#   - ios: needs macOS and the prebuilt libgit2, which is build output and not in the repository
+name: Verify
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  desktop-android:
+    name: Desktop + Android
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: corretto
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Tests for jvm and android
+        run: ./gradlew :shared:jvmTest :shared:testAndroidHostTest
+
+      - name: Build desktop and Android apps
+        run: ./gradlew :desktopApp:build :androidApp:build
+
+  ios:
+    name: iOS
+    # pinned like in desktop-release.yml, so a new Xcode does not change the build without notice
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: corretto
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # the libgit2 version is set in the build script, so a changed script builds it again
+      - name: Restore libgit2
+        id: libgit2
+        uses: actions/cache@v4
+        with:
+          path: third_party/libgit2/slices
+          key: libgit2-${{ runner.os }}-${{ hashFiles('tools/build-libgit2.sh') }}
+
+      - name: Build libgit2
+        if: steps.libgit2.outputs.cache-hit != 'true'
+        run: |
+          command -v ninja >/dev/null || brew install ninja
+          tools/build-libgit2.sh
+
+      # run the tests on ios simulator
+      - name: Tests
+        run: ./gradlew :shared:iosSimulatorArm64Test
