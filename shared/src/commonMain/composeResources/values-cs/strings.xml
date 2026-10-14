@@ -149,6 +149,7 @@
     <string name="err_failed_sync">Chyba při synchronizaci poznámek</string>
     <string name="err_failed_resolve_conflict">Nepodařilo se vyřešit konflikt</string>
     <string name="err_failed_resolve_conflicts">Nepodařilo se vyřešit konflikty</string>
+    <string name="err_push_after_resolve">Konflikty vyřešeny lokálně, ale odeslání selhalo</string>
     <string name="err_failed_abort_sync">Nepodařilo se zrušit synchronizaci</string>
     <string name="err_failed_create_note">Nepodařilo se vytvořit poznámku</string>
     <string name="err_failed_create_base_directory">Nepodařilo se vytvořit základní složku</string>

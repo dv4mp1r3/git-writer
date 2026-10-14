@@ -16,6 +16,7 @@ import git_writer.shared.generated.resources.err_failed_abort_sync
 import git_writer.shared.generated.resources.err_failed_resolve_conflict
 import git_writer.shared.generated.resources.err_failed_resolve_conflicts
 import git_writer.shared.generated.resources.err_failed_sync
+import git_writer.shared.generated.resources.err_push_after_resolve
 import git_writer.shared.generated.resources.msg_conflicts_resolved
 import git_writer.shared.generated.resources.msg_notes_synced
 import git_writer.shared.generated.resources.msg_sync_aborted
@@ -92,15 +93,7 @@ class EditorSyncController(
             }
 
             if (remaining.isEmpty()) {
-                if (!notebook.remotePassword.isNullOrBlank()) {
-                    gitSyncRepository.pushChanges(
-                        currentNotebookPath = notebook.directoryPath,
-                        tokenOrPassword = notebook.remotePassword,
-                        username = notebook.remoteUsername
-                    )
-                }
-                state.update { it.copy(gitSyncStatus = GitSyncStatus.UpToDate) }
-                snackbarManager.showMessage(SnackbarText.resource(Res.string.msg_conflicts_resolved))
+                pushResolvedConflicts(notebook.directoryPath, notebook.remotePassword, notebook.remoteUsername)
             }
         }.onFailure {
             snackbarManager.showMessage(SnackbarText.message(Res.string.err_failed_resolve_conflict, it.message))
@@ -141,23 +134,35 @@ class EditorSyncController(
         )
 
         result.onSuccess {
-            state.update {
-                it.copy(conflictedFiles = emptyList(), gitSyncStatus = GitSyncStatus.UpToDate)
-            }
+            state.update { it.copy(conflictedFiles = emptyList()) }
 
             state.value.activeNotePath?.let { reloadNote(it) }
 
-            if (!remotePassword.isNullOrBlank()) {
-                gitSyncRepository.pushChanges(
-                    currentNotebookPath = notebookPath,
-                    tokenOrPassword = remotePassword,
-                    username = remoteUsername
-                )
-            }
-            snackbarManager.showMessage(SnackbarText.resource(Res.string.msg_conflicts_resolved))
+            pushResolvedConflicts(notebookPath, remotePassword, remoteUsername)
         }.onFailure {
             state.update { it.copy(gitSyncStatus = GitSyncStatus.GitSyncFailed) }
             snackbarManager.showMessage(SnackbarText.message(Res.string.err_failed_resolve_conflicts, it.message))
+        }
+    }
+
+    // the resolution is already committed locally, so a failed push is not lost - the next sync pushes it
+    private suspend fun pushResolvedConflicts(notebookPath: String, remotePassword: String?, remoteUsername: String?) {
+        val pushResult = if (remotePassword.isNullOrBlank()) {
+            Result.success(Unit)
+        } else {
+            gitSyncRepository.pushChanges(
+                currentNotebookPath = notebookPath,
+                tokenOrPassword = remotePassword,
+                username = remoteUsername
+            )
+        }
+
+        pushResult.onSuccess {
+            state.update { it.copy(gitSyncStatus = GitSyncStatus.UpToDate) }
+            snackbarManager.showMessage(SnackbarText.resource(Res.string.msg_conflicts_resolved))
+        }.onFailure {
+            state.update { it.copy(gitSyncStatus = GitSyncStatus.GitSyncFailed) }
+            snackbarManager.showMessage(SnackbarText.message(Res.string.err_push_after_resolve, it.message))
         }
     }
 }

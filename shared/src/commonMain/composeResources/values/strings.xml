@@ -150,6 +150,7 @@
     <string name="err_failed_sync">Error syncing notes</string>
     <string name="err_failed_resolve_conflict">Failed to resolve conflict</string>
     <string name="err_failed_resolve_conflicts">Failed to resolve conflicts</string>
+    <string name="err_push_after_resolve">Conflicts resolved locally, but the push failed</string>
     <string name="err_failed_abort_sync">Failed to abort sync</string>
     <string name="err_failed_create_note">Failed to create note</string>
     <string name="err_create_note_no_notebook">Failed to create note: no active notebook</string>

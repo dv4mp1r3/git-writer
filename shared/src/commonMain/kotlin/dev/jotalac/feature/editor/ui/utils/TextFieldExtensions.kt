@@ -15,11 +15,11 @@ fun TextFieldValue.applyMarkdownSyntax(prefix: String = "", suffix: String = "")
     // create the new text with the special characters
     val newText = "$textBefore$prefix$selectedText$suffix$textAfter"
 
-    // calculate the cursor positions
+    // calculate the cursor positions (from selStart - selection.start is the end of a backwards selection)
     val newCursorPos = if (selectedText.isEmpty()) {
-        selection.start + prefix.length
+        selStart + prefix.length
     } else {
-        selection.start + prefix.length + selectedText.length + suffix.length
+        selStart + prefix.length + selectedText.length + suffix.length
     }
 
     return TextFieldValue(text = newText, selection = TextRange(newCursorPos))
@@ -45,7 +45,7 @@ fun TextFieldValue.applyCodeBlock(): TextFieldValue = this.applyMarkdownSyntax("
 
 fun TextFieldValue.applyInlineCode(): TextFieldValue = this.applyMarkdownSyntax("`", "`")
 
-fun TextFieldValue.applyCheckbox(): TextFieldValue = this.applyMarkdownSyntax("- [ ]")
+fun TextFieldValue.applyCheckbox(): TextFieldValue = this.applyMarkdownSyntax("- [ ] ")
 
 fun TextFieldValue.addLink(): TextFieldValue = this.applyMarkdownSyntax("[", "]()")
 

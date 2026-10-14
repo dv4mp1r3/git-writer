@@ -150,6 +150,7 @@
     <string name="err_failed_sync">同步笔记时出错</string>
     <string name="err_failed_resolve_conflict">解决冲突失败</string>
     <string name="err_failed_resolve_conflicts">解决冲突失败</string>
+    <string name="err_push_after_resolve">冲突已在本地解决，但推送失败</string>
     <string name="err_failed_abort_sync">中止同步失败</string>
     <string name="err_failed_create_note">创建笔记失败</string>
     <string name="err_create_note_no_notebook">创建笔记失败：没有活动的笔记本</string>

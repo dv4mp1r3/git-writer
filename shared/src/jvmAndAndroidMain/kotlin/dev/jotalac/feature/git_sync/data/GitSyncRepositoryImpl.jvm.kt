@@ -11,6 +11,7 @@ import kotlinx.coroutines.withContext
 import org.eclipse.jgit.api.*
 import org.eclipse.jgit.lib.BranchTrackingStatus
 import org.eclipse.jgit.lib.RepositoryState
+import org.eclipse.jgit.transport.RemoteRefUpdate
 import org.eclipse.jgit.transport.URIish
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider
 import java.io.File
@@ -164,7 +165,21 @@ class JGitSyncRepositoryImpl : GitSyncRepository {
         val shouldPush = trackingStatus == null || trackingStatus.aheadCount > 0
 
         if (shouldPush) {
-            git.push().setCredentialsProvider(credentials).call()
+            pushOrThrow(git, credentials)
+        }
+    }
+
+    // JGit only throws when it cannot reach the remote (its exception keeps the real cause) - a push the
+    // remote refuses (it has newer commits, protected branch, server hook) comes back as a status
+    private fun pushOrThrow(git: Git, credentials: UsernamePasswordCredentialsProvider) {
+        val rejected = git.push().setCredentialsProvider(credentials).call()
+            .flatMap { it.remoteUpdates }
+            .filter { it.status != RemoteRefUpdate.Status.OK && it.status != RemoteRefUpdate.Status.UP_TO_DATE }
+
+        if (rejected.isNotEmpty()) {
+            error("Push rejected: " + rejected.joinToString { update ->
+                listOfNotNull(update.remoteName, update.status.name, update.message).joinToString(" ")
+            })
         }
     }
 
@@ -239,7 +254,7 @@ class JGitSyncRepositoryImpl : GitSyncRepository {
             val credentials = getCredentials(username, tokenOrPassword)
 
             Git.open(localRepoDir).use { git ->
-                git.push().setCredentialsProvider(credentials).call()
+                pushOrThrow(git, credentials)
             }
 
             _syncStatus.tryEmit(GitSyncStatus.UpToDate)
