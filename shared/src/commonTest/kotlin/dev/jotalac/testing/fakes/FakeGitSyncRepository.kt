@@ -12,6 +12,9 @@ class FakeGitSyncRepository : GitSyncRepository {
     override val gitSyncStatus: Flow<GitSyncStatus> = status
 
     var syncResult: Result<GitSyncStatus> = Result.failure(IllegalStateException("not stubbed"))
+    var resolveConflictResult: Result<Unit> = Result.success(Unit)
+    var abortResult: Result<Unit> = Result.success(Unit)
+    var pushResult: Result<Unit> = Result.success(Unit)
 
     val initializedPaths = mutableListOf<String>()
     val clonedDestinations = mutableListOf<String>()
@@ -20,6 +23,11 @@ class FakeGitSyncRepository : GitSyncRepository {
     val updatedRemoteUrls = mutableListOf<Pair<String, String>>()
     val abortedMerges = mutableListOf<String>()
     val removedRemotes = mutableListOf<String>()
+
+    /** conflicted file to whether the local version was kept */
+    val resolvedConflicts = mutableListOf<Pair<String, Boolean>>()
+    /** keepLocalChanges of every resolve-all call */
+    val resolvedAllConflicts = mutableListOf<Boolean>()
 
     override suspend fun validateCredentials(
         repoUrl: String,
@@ -56,12 +64,18 @@ class FakeGitSyncRepository : GitSyncRepository {
         currentNotebookPath: String,
         conflictedFilePath: String,
         keepLocalChanges: Boolean,
-    ): Result<Unit> = Result.success(Unit)
+    ): Result<Unit> {
+        resolvedConflicts += conflictedFilePath to keepLocalChanges
+        return resolveConflictResult
+    }
 
     override suspend fun resolveAllConflicts(
         currentNotebookPath: String,
         keepLocalChanges: Boolean,
-    ): Result<Unit> = Result.success(Unit)
+    ): Result<Unit> {
+        resolvedAllConflicts += keepLocalChanges
+        return resolveConflictResult
+    }
 
     override suspend fun pushChanges(
         currentNotebookPath: String,
@@ -69,7 +83,7 @@ class FakeGitSyncRepository : GitSyncRepository {
         username: String?,
     ): Result<Unit> {
         pushedPaths += currentNotebookPath
-        return Result.success(Unit)
+        return pushResult
     }
 
     override suspend fun updateRemoteUrl(
@@ -82,7 +96,7 @@ class FakeGitSyncRepository : GitSyncRepository {
 
     override suspend fun abortMerge(currentNotebookPath: String): Result<Unit> {
         abortedMerges += currentNotebookPath
-        return Result.success(Unit)
+        return abortResult
     }
 
     override suspend fun removeRemote(currentNotebookPath: String): Result<Unit> {

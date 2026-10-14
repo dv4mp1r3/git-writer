@@ -6,8 +6,10 @@ import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.jotalac.core.utils.isDesktopPlatform
 import dev.jotalac.feature.editor.ui.MarkdownEditorState
@@ -17,6 +19,9 @@ import git_writer.shared.generated.resources.Res
 import git_writer.shared.generated.resources.add_new_block_message
 import org.jetbrains.compose.resources.stringResource
 
+
+val LocalEditorFullWidth = compositionLocalOf { false }
+
 @Composable
 fun MarkdownEditorBlocksList(
     blocks: List<String>,
@@ -25,6 +30,7 @@ fun MarkdownEditorBlocksList(
     scrollState: ScrollState = rememberScrollState(),
     onBlockLongClick: (Int) -> Unit,
 ) {
+    val fullWidth = LocalEditorFullWidth.current
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -33,7 +39,7 @@ fun MarkdownEditorBlocksList(
         Column(
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .widthIn(max = 800.dp)
+                .widthIn(max = if (fullWidth) Dp.Unspecified else 800.dp)
                 .padding(16.dp)
         ) {
             blocks.forEachIndexed { index, block ->

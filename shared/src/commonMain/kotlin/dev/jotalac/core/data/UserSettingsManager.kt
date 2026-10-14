@@ -17,6 +17,7 @@ data class UserSettingsState(
     val gitConflictStrategy: GitConflictResolutionStrategy = GitConflictResolutionStrategy.MANUAL,
     val useDynamicColor: Boolean = false,
     val spellcheckLanguage: AppLanguage? = null,
+    val editorFullWidth: Boolean = false
 )
 
 class UserSettingsManager(
@@ -30,6 +31,7 @@ class UserSettingsManager(
         private val CONFLICT_STRATEGY_KEY = stringPreferencesKey("conflict_strategy")
         private val USE_DYNAMIC_COLOR_KEY = booleanPreferencesKey("dynamic_color")
         private val SPELLCHECK_LANGUAGE_KEY = stringPreferencesKey("spellcheck_language")
+        private val EDITOR_FULL_WIDTH_KEY = booleanPreferencesKey("editor_full_width")
     }
 
     override val userSettingsStateFlow: Flow<UserSettingsState> = dataStore.data
@@ -54,6 +56,7 @@ class UserSettingsManager(
                 spellcheckLanguage = preferences[SPELLCHECK_LANGUAGE_KEY]?.let { name ->
                     AppLanguage.entries.find { it.name == name }
                 },
+                editorFullWidth = preferences[EDITOR_FULL_WIDTH_KEY] ?: false
             )
         }
 
@@ -103,6 +106,12 @@ class UserSettingsManager(
         }
     }
 
+    override suspend fun setEditorFullWidth(fullWidth: Boolean) {
+       dataStore.edit { preferences ->
+           preferences[EDITOR_FULL_WIDTH_KEY] = fullWidth
+       }
+    }
+
     suspend fun clearSettings() {
         dataStore.edit { preferences ->
             preferences.remove(THEME_MODE_KEY)
@@ -111,6 +120,7 @@ class UserSettingsManager(
             preferences.remove(LANGUAGE_KEY)
             preferences.remove(CONFLICT_STRATEGY_KEY)
             preferences.remove(SPELLCHECK_LANGUAGE_KEY)
+            preferences.remove(EDITOR_FULL_WIDTH_KEY)
         }
     }
 }

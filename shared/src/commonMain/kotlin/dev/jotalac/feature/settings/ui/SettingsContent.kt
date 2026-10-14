@@ -55,7 +55,9 @@ fun SettingsContent(
                 onThemeAccentColorChange = { onAction(SettingsViewModel.SettingsAction.ChangeThemeAccentColor(it)) },
                 onFontFamilyChange = { onAction(SettingsViewModel.SettingsAction.ChangeFont(it)) },
                 useDynamicColor = userSettingsState.useDynamicColor,
-                onDynamicColorToggle = { onAction(SettingsViewModel.SettingsAction.ChangeUseDynamicColor(it)) }
+                onDynamicColorToggle = { onAction(SettingsViewModel.SettingsAction.ChangeUseDynamicColor(it)) },
+                editorFullWidth = userSettingsState.editorFullWidth,
+                onEditorFullWidthChange = { onAction(SettingsViewModel.SettingsAction.ChangeEditorFullWidth(it)) }
             )
 
             LanguageSettings(

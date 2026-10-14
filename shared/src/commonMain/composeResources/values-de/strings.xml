@@ -97,6 +97,9 @@
     <string name="settings_font_title">Schrift &amp; Typografie</string>
     <string name="settings_font_subtitle">Schriftfamilie</string>
     <string name="settings_font_family_label">Schriftfamilie</string>
+    <string name="settings_editor_width_title">Editorbreite</string>
+    <string name="settings_editor_width_subtitle">Wie breit der Notizeditor ist</string>
+    <string name="settings_editor_full_width_label">Volle Breite</string>
     <string name="settings_font_default">Standard</string>
     <string name="settings_font_monospace">Monospace</string>
     <string name="settings_font_serif">Serif</string>
@@ -147,6 +150,7 @@
     <string name="err_failed_sync">Fehler beim Synchronisieren der Notizen</string>
     <string name="err_failed_resolve_conflict">Konflikt konnte nicht gelöst werden</string>
     <string name="err_failed_resolve_conflicts">Konflikte konnten nicht gelöst werden</string>
+    <string name="err_push_after_resolve">Konflikte lokal gelöst, aber das Pushen ist fehlgeschlagen</string>
     <string name="err_failed_abort_sync">Synchronisierung konnte nicht abgebrochen werden</string>
     <string name="err_failed_create_note">Notiz konnte nicht erstellt werden</string>
     <string name="err_create_note_no_notebook">Notiz konnte nicht erstellt werden: kein aktives Notizbuch</string>

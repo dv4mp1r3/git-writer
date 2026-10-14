@@ -96,6 +96,9 @@
     <string name="settings_font_title">Fuente y tipografía</string>
     <string name="settings_font_subtitle">Familia de fuente</string>
     <string name="settings_font_family_label">Familia de fuente</string>
+    <string name="settings_editor_width_title">Ancho del editor</string>
+    <string name="settings_editor_width_subtitle">Cuán ancho es el editor de notas</string>
+    <string name="settings_editor_full_width_label">Ancho completo</string>
     <string name="settings_font_default">Por defecto</string>
     <string name="settings_font_monospace">Monoespaciado</string>
     <string name="settings_font_serif">Serif</string>
@@ -146,6 +149,7 @@
     <string name="err_failed_sync">Error al sincronizar las notas</string>
     <string name="err_failed_resolve_conflict">No se pudo resolver el conflicto</string>
     <string name="err_failed_resolve_conflicts">No se pudieron resolver los conflictos</string>
+    <string name="err_push_after_resolve">Conflictos resueltos localmente, pero el envío falló</string>
     <string name="err_failed_abort_sync">No se pudo cancelar la sincronización</string>
     <string name="err_failed_create_note">No se pudo crear la nota</string>
     <string name="err_failed_create_base_directory">No se pudo crear la carpeta base</string>

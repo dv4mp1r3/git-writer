@@ -33,7 +33,8 @@ fun exitListContinuation(lastLineIndex: Int, cursorIndex: Int, text: String): Te
     val lineStartIndex = lastLineIndex + 1
 
     val cleanText = insertTextBetween(text, lineStartIndex, cursorIndex)
-    val newCursorPos = lineStartIndex + 1
+    // the cursor stays on the line the list marker was removed from
+    val newCursorPos = lineStartIndex
 
     return TextFieldValue(text = cleanText, selection = TextRange(newCursorPos))
 }

@@ -35,6 +35,8 @@ fun AppearanceSettings(
     onFontFamilyChange: (AppFontFamily) -> Unit,
     useDynamicColor: Boolean,
     onDynamicColorToggle: (Boolean) -> Unit,
+    editorFullWidth: Boolean,
+    onEditorFullWidthChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -58,6 +60,11 @@ fun AppearanceSettings(
         FontSettings(
             selectedFontFamily = selectedFontFamily,
             onFontFamilyChange = onFontFamilyChange
+        )
+
+        EditorWidthSettings(
+            editorFullWidth = editorFullWidth,
+            onEditorFullWidthChange = onEditorFullWidthChange
         )
     }
 }
@@ -219,6 +226,35 @@ private fun FontSettings(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun EditorWidthSettings(
+    editorFullWidth: Boolean,
+    onEditorFullWidthChange: (Boolean) -> Unit
+) {
+    SettingsCollapsableSection(
+        title = stringResource(Res.string.settings_editor_width_title),
+        subtitle = stringResource(Res.string.settings_editor_width_subtitle),
+        initiallyExpanded = false
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = stringResource(Res.string.settings_editor_full_width_label),
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.weight(1f)
+            )
+
+            Switch(
+                checked = editorFullWidth,
+                onCheckedChange = onEditorFullWidthChange
+            )
         }
     }
 }

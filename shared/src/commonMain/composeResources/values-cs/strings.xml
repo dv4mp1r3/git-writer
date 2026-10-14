@@ -97,6 +97,9 @@
     <string name="settings_font_title">Písmo a typografie</string>
     <string name="settings_font_subtitle">Rodina písma</string>
     <string name="settings_font_family_label">Rodina písma</string>
+    <string name="settings_editor_width_title">Šířka editoru</string>
+    <string name="settings_editor_width_subtitle">Jak široký je editor poznámek</string>
+    <string name="settings_editor_full_width_label">Celá šířka</string>
     <string name="settings_font_default">Výchozí</string>
     <string name="settings_font_monospace">Monospace</string>
     <string name="settings_font_serif">Patkové</string>
@@ -146,6 +149,7 @@
     <string name="err_failed_sync">Chyba při synchronizaci poznámek</string>
     <string name="err_failed_resolve_conflict">Nepodařilo se vyřešit konflikt</string>
     <string name="err_failed_resolve_conflicts">Nepodařilo se vyřešit konflikty</string>
+    <string name="err_push_after_resolve">Konflikty vyřešeny lokálně, ale odeslání selhalo</string>
     <string name="err_failed_abort_sync">Nepodařilo se zrušit synchronizaci</string>
     <string name="err_failed_create_note">Nepodařilo se vytvořit poznámku</string>
     <string name="err_failed_create_base_directory">Nepodařilo se vytvořit základní složku</string>

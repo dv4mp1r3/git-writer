@@ -19,4 +19,5 @@ interface UserSettings {
     suspend fun setGitConflictStrategy(strategy: GitConflictResolutionStrategy)
     suspend fun setUseDynamicColor(useDynamicColor: Boolean)
     suspend fun setSpellcheckLanguage(language: AppLanguage?)
+    suspend fun setEditorFullWidth(fullWidth: Boolean)
 }

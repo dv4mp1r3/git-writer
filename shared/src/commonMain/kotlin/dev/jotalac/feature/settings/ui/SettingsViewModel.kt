@@ -31,6 +31,8 @@ class SettingsViewModel(
 
                 is SettingsAction.ChangeFont ->
                     userSettingsManager.setFont(action.font)
+                is SettingsAction.ChangeEditorFullWidth ->
+                    userSettingsManager.setEditorFullWidth(action.editorFullWidth)
 
                 is SettingsAction.ChangeLanguage ->
                     userSettingsManager.setLanguage(action.language)
@@ -52,6 +54,7 @@ class SettingsViewModel(
         data class ChangeThemeMode(val themeMode: AppThemeMode) : SettingsAction
         data class ChangeThemeAccentColor(val accentColor: AppThemeAccentColor) : SettingsAction
         data class ChangeFont(val font: AppFontFamily) : SettingsAction
+        data class ChangeEditorFullWidth(val editorFullWidth: Boolean) : SettingsAction
         data class ChangeLanguage(val language: AppLanguage) : SettingsAction
         data class ChangeSpellcheckLanguage(val language: AppLanguage?) : SettingsAction
         data class ChangeGitConflictStrategy(val strategy: GitConflictResolutionStrategy) : SettingsAction

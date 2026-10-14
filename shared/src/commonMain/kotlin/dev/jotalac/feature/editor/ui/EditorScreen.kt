@@ -9,10 +9,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.*
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil3.compose.AsyncImage
+import dev.jotalac.feature.editor.ui.components.ZoomableImage
 import dev.jotalac.core.ui.components.CustomScaffold
 import dev.jotalac.core.ui.components.TopAppBarIcon
 import dev.jotalac.core.ui.theme.dimensions
@@ -394,12 +393,10 @@ private fun EditorContent(
     } else if (filename == null) {
         NoFileOpenedMessage()
     } else if (isImage && activeNotePath != null) {
-        AsyncImage(
-            model = PlatformFile(activeNotePath),
+        ZoomableImage(
+            imageFile = PlatformFile(activeNotePath),
             contentDescription = filename,
-            modifier = Modifier.fillMaxSize().padding(16.dp),
-            contentScale = ContentScale.Inside,
-
+            modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 20.dp),
         )
     } else {
         val notePath = requireNotNull(activeNotePath)

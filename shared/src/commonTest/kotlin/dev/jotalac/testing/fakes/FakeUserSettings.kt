@@ -25,6 +25,11 @@ class FakeUserSettings(
     override suspend fun setGitConflictStrategy(strategy: GitConflictResolutionStrategy) { calledWrites += "conflictStrategy" }
     override suspend fun setUseDynamicColor(useDynamicColor: Boolean) { calledWrites += "dynamicColor" }
 
+    override suspend fun setEditorFullWidth(fullWidth: Boolean) {
+        calledWrites += "editorFullWidth"
+        settings.value = settings.value.copy(editorFullWidth = fullWidth)
+    }
+
     override suspend fun setSpellcheckLanguage(language: AppLanguage?) {
         calledWrites += "spellcheckLanguage"
         settings.value = settings.value.copy(spellcheckLanguage = language)

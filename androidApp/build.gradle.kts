@@ -15,6 +15,8 @@ dependencies {
     implementation(projects.shared)
 
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.glance.appwidget)
+    implementation(libs.androidx.glance.material3)
 
     implementation(libs.compose.uiToolingPreview)
     coreLibraryDesugaring(libs.desugar.jdk.libs)

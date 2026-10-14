@@ -34,6 +34,7 @@ desugar-jdk-libs = "2.1.5"
 jna = "5.19.1"
 build-konfig = "0.22.0"
 nucleus-spell-check = "2.5.18"
+glance = "1.2.0"
 
 
 [libraries]
@@ -78,6 +79,8 @@ jgit-v5 = { module = "org.eclipse.jgit:org.eclipse.jgit", version.ref = "jgit-an
 jgit-latest = { module = "org.eclipse.jgit:org.eclipse.jgit", version.ref = "jgit-desktop-version" }
 jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
 desugar-jdk-libs = { module = "com.android.tools:desugar_jdk_libs", version.ref = "desugar-jdk-libs" }
+androidx-glance-appwidget = { module = "androidx.glance:glance-appwidget", version.ref = "glance" }
+androidx-glance-material3 = { module = "androidx.glance:glance-material3", version.ref = "glance" }
 nucleus-spell-check = { module = "dev.nucleusframework:nucleus.spellcheck", version.ref = "nucleus-spell-check"}
 
 multiplatform-markdown-renderer = { module = "com.mikepenz:multiplatform-markdown-renderer", version.ref = "markdown-renderer" }
