@@ -121,6 +121,7 @@ class UserSettingsManager(
             preferences.remove(CONFLICT_STRATEGY_KEY)
             preferences.remove(SPELLCHECK_LANGUAGE_KEY)
             preferences.remove(EDITOR_FULL_WIDTH_KEY)
+            preferences.remove(USE_DYNAMIC_COLOR_KEY)
         }
     }
 }
