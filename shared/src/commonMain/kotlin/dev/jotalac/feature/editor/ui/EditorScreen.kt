@@ -133,6 +133,7 @@ fun EditorScreen(
             if (isCompactScreen) {
                 CompactEditorLayout(
                     markdownBlocks = blocks,
+                    scrollPositions = viewModel.noteScrollPositions,
                     filename = state.activeFilename,
                     activeNotePath = state.activeNotePath,
                     isImage = state.isImage,
@@ -148,6 +149,7 @@ fun EditorScreen(
             } else {
                 ExpandedEditorLayout(
                     markdownBlocks = blocks,
+                    scrollPositions = viewModel.noteScrollPositions,
                     filename = state.activeFilename,
                     activeNotePath = state.activeNotePath,
                     isImage = state.isImage,
@@ -168,6 +170,7 @@ fun EditorScreen(
 @Composable
 private fun CompactEditorLayout(
     markdownBlocks: List<String>,
+    scrollPositions: MutableMap<String, Int>,
     filename: String?,
     activeNotePath: String?,
     isImage: Boolean,
@@ -208,6 +211,7 @@ private fun CompactEditorLayout(
             },
             isLoading = isLoading,
             markdownBlocks = markdownBlocks,
+            scrollPositions = scrollPositions,
             onAction = onAction,
             gitSyncStatus = gitSyncStatus,
             uiState = uiState,
@@ -221,6 +225,7 @@ private fun CompactEditorLayout(
 @Composable
 private fun ExpandedEditorLayout(
     markdownBlocks: List<String>,
+    scrollPositions: MutableMap<String, Int>,
     filename: String?,
     activeNotePath: String?,
     isImage: Boolean,
@@ -252,6 +257,7 @@ private fun ExpandedEditorLayout(
             },
             isLoading = isLoading,
             markdownBlocks = markdownBlocks,
+            scrollPositions = scrollPositions,
             onAction = onAction,
             gitSyncStatus = gitSyncStatus,
             uiState = uiState,
@@ -272,6 +278,7 @@ private fun MainEditorScaffold(
     onToggleSidebar: () -> Unit,
     isLoading: Boolean,
     markdownBlocks: List<String>,
+    scrollPositions: MutableMap<String, Int>,
     onAction: (EditorAction) -> Unit,
     gitSyncStatus: GitSyncStatus,
     uiState: State<EditorScreenState>,
@@ -362,6 +369,7 @@ private fun MainEditorScaffold(
                 isImage = isImage,
                 activeNotePath = activeNotePath,
                 markdownBlocks = markdownBlocks,
+                scrollPositions = scrollPositions,
                 onAction = onAction,
                 findState = findState,
             )
@@ -376,11 +384,10 @@ private fun EditorContent(
     isImage: Boolean,
     activeNotePath: String?,
     markdownBlocks: List<String>,
+    scrollPositions: MutableMap<String, Int>,
     onAction: (EditorAction) -> Unit,
     findState: MarkdownFindState,
 ) {
-    // remember scroll position per note, so switching tabs doesn't reset it
-    val scrollPositions = remember { mutableMapOf<String, Int>() }
     findState.isEnabled = false
 
     if (isLoading) {

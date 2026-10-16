@@ -2,8 +2,7 @@
 
 > high priority
 
-- when i am scrolled to some position on one tab and then go back to the tab the scroll position is off
-- finish tests
+- add tests for core module 
 
 > medium priority
 

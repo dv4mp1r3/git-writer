@@ -4,6 +4,8 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import dev.jotalac.feature.editor.ui.utils.ignoreLeftoverScroll
+import dev.jotalac.feature.editor.ui.utils.restoreScroll
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -52,10 +54,12 @@ fun MarkdownEditor(
     val surfaceFocusRequester = remember { FocusRequester() }
     val findQueryFocusRequester = remember { FocusRequester() }
 
-    val listScrollState = rememberScrollState(initialScroll)
+    val listScrollState = rememberScrollState()
 
-    // report the scroll position so the caller can restore it when this note is shown again
+    // restore where this note was scrolled to, then report the position so it can be restored next time -
+    // only after restoring, the positions on the way there are not where the user was
     LaunchedEffect(listScrollState) {
+        listScrollState.restoreScroll(initialScroll)
         snapshotFlow { listScrollState.value }
             .collect { onScrollOffsetChanged(it) }
     }
@@ -94,6 +98,7 @@ fun MarkdownEditor(
 
     Box(
         modifier = modifier
+            .ignoreLeftoverScroll()
             .focusRequester(surfaceFocusRequester)
             .focusable()
             .imePadding()

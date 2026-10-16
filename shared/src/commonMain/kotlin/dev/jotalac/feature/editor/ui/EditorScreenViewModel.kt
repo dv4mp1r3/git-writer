@@ -38,6 +38,9 @@ class EditorViewModel(
     private val blocksState = EditorBlocksState()
     val markdownBlocks = blocksState.blocks
 
+    // where each note was scrolled to, by path, so that tab switching doesnt reset the scroll
+    val noteScrollPositions = mutableMapOf<String, Int>()
+
     private val syncController = EditorSyncController(
         gitSyncRepository = gitSyncRepository,
         notebookRepository = notebookRepository,
