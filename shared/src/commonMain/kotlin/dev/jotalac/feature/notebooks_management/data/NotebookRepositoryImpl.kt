@@ -63,6 +63,7 @@ class NotebookRepositoryImpl(
         name: String, directoryPath: String,
     ): Result<Notebook> = withContext(Dispatchers.IO) {
         suspendRunCatching {
+            requireUniqueName(name)
             if (directoryExists(directoryPath)) {
                 throw IllegalStateException("Directory already exists")
             }
@@ -74,7 +75,7 @@ class NotebookRepositoryImpl(
 
             val gitInit = gitSyncRepository.initRepository(directoryPath)
             if (gitInit.isFailure) {
-                baseDirectory.delete()
+                Path(directoryPath).deleteRecursively()
                 throw IllegalStateException(
                     "Failed to initialize git repository: ${gitInit.exceptionOrNull()?.message}"
                 )
@@ -82,7 +83,7 @@ class NotebookRepositoryImpl(
 
             return@suspendRunCatching saveNotebookToDb(name, directoryPath).getOrElse { cause ->
                 // delete folder when it fails
-                baseDirectory.delete()
+                Path(directoryPath).deleteRecursively()
                 throw IllegalStateException("Failed to save notebook to database", cause)
             }
         }
@@ -97,12 +98,14 @@ class NotebookRepositoryImpl(
 
                 val rootNotebookDirectory = PlatformFile(directoryPath)
 
-                // a folder that is already a notebook is opened, not registered twice
-                notebookDao.getNotebookByName(rootNotebookDirectory.name)
+                // a folder that is already a notebook is opened, not registered twice - looked up by its path,
+                // another folder may have the same name
+                notebookDao.getNotebookByDirectoryPath(directoryPath.toStoredPath())
                     ?.let { return@suspendRunCatching it.withRuntimePath().toNotebook() }
 
                 // init git repo if the folder is not a git repository
-                val gitInit = if ((rootNotebookDirectory / ".git").exists()) {
+                val isGitRepository = (rootNotebookDirectory / ".git").exists()
+                val gitInit = if (isGitRepository) {
                     Result.success(Unit)
                 } else {
                     gitSyncRepository.initRepository(directoryPath)
@@ -113,13 +116,31 @@ class NotebookRepositoryImpl(
                     )
                 }
 
-                saveNotebookToDb(rootNotebookDirectory.name, directoryPath).getOrElse { cause ->
-                    // delete the .git directory if saving fails
-                    (rootNotebookDirectory / ".git").delete()
+                saveNotebookToDb(freeNotebookName(rootNotebookDirectory.name), directoryPath).getOrElse { cause ->
+                    // delete the .git directory if saving fails - only one created here, an existing one
+                    // holds the user's history
+                    if (!isGitRepository) Path(directoryPath, ".git").deleteRecursively()
                     throw IllegalStateException("Failed to save notebook to database", cause)
                 }
             }
         }
+
+    private suspend fun requireUniqueName(name: String) {
+        if (!isNotebookNameUnique(name.trim())) {
+            throw IllegalStateException("A notebook with this name already exists")
+        }
+    }
+
+    // "Diary", or "Diary 2", "Diary 3"... when another notebook already has the name
+    private suspend fun freeNotebookName(name: String): String {
+        var candidate = name.trim()
+        var counter = 1
+        while (!isNotebookNameUnique(candidate)) {
+            counter++
+            candidate = "${name.trim()} $counter"
+        }
+        return candidate
+    }
 
     private suspend fun saveNotebookToDb(name: String, directoryPath: String): Result<Notebook> =
         suspendRunCatching {
@@ -144,6 +165,7 @@ class NotebookRepositoryImpl(
         remoteUsername: String?,
     ): Result<Notebook> = withContext(Dispatchers.IO) {
         suspendRunCatching {
+            requireUniqueName(name)
             // first create the directory
             if (directoryExists(directoryPath)) {
                 throw IllegalStateException("Directory already exists")
@@ -157,7 +179,7 @@ class NotebookRepositoryImpl(
             if (credentialsVerificationResult.isFailure) {
                 println(credentialsVerificationResult.exceptionOrNull())
 
-                baseDirectory.delete()
+                Path(directoryPath).deleteRecursively()
                 throw IllegalStateException("Invalid remote credentials")
             }
 
@@ -170,7 +192,7 @@ class NotebookRepositoryImpl(
             )
 
             if (repoCloneResult.isFailure) {
-                baseDirectory.delete()
+                Path(directoryPath).deleteRecursively()
                 throw IllegalStateException("Failed to clone repository")
             }
             // save notebook to database
@@ -235,6 +257,8 @@ class NotebookRepositoryImpl(
 
             //rename the folder name to match the notebook name
             moveNotebookPaths(existing.directoryPath, newDirectoryPath)
+            // the open note of a renamed notebook would still point into the old folder
+            syncActiveNotePathOnMoved(existing.directoryPath, newDirectoryPath)
 
             val updated = existing.copy(
                 name = name,

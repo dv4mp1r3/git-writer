@@ -15,6 +15,9 @@ class FakeGitSyncRepository : GitSyncRepository {
     var resolveConflictResult: Result<Unit> = Result.success(Unit)
     var abortResult: Result<Unit> = Result.success(Unit)
     var pushResult: Result<Unit> = Result.success(Unit)
+    var initResult: Result<Unit> = Result.success(Unit)
+    var validateCredentialsResult: Result<Unit> = Result.success(Unit)
+    var cloneResult: Result<Unit> = Result.success(Unit)
 
     val initializedPaths = mutableListOf<String>()
     val clonedDestinations = mutableListOf<String>()
@@ -23,6 +26,8 @@ class FakeGitSyncRepository : GitSyncRepository {
     val updatedRemoteUrls = mutableListOf<Pair<String, String>>()
     val abortedMerges = mutableListOf<String>()
     val removedRemotes = mutableListOf<String>()
+    /** remote url of every updateSyncStatus call */
+    val syncStatusRemoteUrls = mutableListOf<String?>()
 
     /** conflicted file to whether the local version was kept */
     val resolvedConflicts = mutableListOf<Pair<String, Boolean>>()
@@ -33,7 +38,7 @@ class FakeGitSyncRepository : GitSyncRepository {
         repoUrl: String,
         tokenOrPassword: String,
         username: String?,
-    ): Result<Unit> = Result.success(Unit)
+    ): Result<Unit> = validateCredentialsResult
 
     override suspend fun cloneRepository(
         repoUrl: String,
@@ -42,12 +47,12 @@ class FakeGitSyncRepository : GitSyncRepository {
         username: String?,
     ): Result<Unit> {
         clonedDestinations += destinationPath
-        return Result.success(Unit)
+        return cloneResult
     }
 
     override suspend fun initRepository(currentNotebookPath: String): Result<Unit> {
         initializedPaths += currentNotebookPath
-        return Result.success(Unit)
+        return initResult
     }
 
     override suspend fun syncNotes(
@@ -105,6 +110,7 @@ class FakeGitSyncRepository : GitSyncRepository {
     }
 
     override fun updateSyncStatus(remoteUrl: String?, syncStatus: GitSyncStatus?): Result<Unit> {
+        syncStatusRemoteUrls += remoteUrl
         syncStatus?.let { status.tryEmit(it) }
         return Result.success(Unit)
     }

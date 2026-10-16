@@ -2,6 +2,9 @@
 
 > high priority
 
+- when i am scrolled to some position on one tab and then go back to the tab the scroll position is off
+- finish tests
+
 > medium priority
 
 - add note linking
@@ -13,7 +16,6 @@
 - make file header like in obsidian - the file heading will show the file name changing the header will change the filename
 - lists are splitted into multiple blocks, but when reloaded it is only one list block (no other components are in the middle of it)
 - add something like .gitwriter file to each notebook folder, there will be the remote credentials etc., it wont be commited, but comes in handy when you want to open folder with remote already configured
-- when opening notebooks, when two noteboks have same directory name but the path is different, it cannot be opened
 - add bottom bar - info button and character/word count (add some help to topAppBar - usage, shortcuts in the app,
   markdown cheatsheet, etc.)
 - add ctrl+r replace (replace all/current)
@@ -38,3 +40,4 @@
 - better messages while syncing (eg. when nothing is commited or pulled - display up to date message)
 - make username and password optional for cloning when cloning public repo – then the sync would be disabled?
 - check for network connection, when there is no connection, disable the sync button
+- add some overview of the opened note, it will show the headers, and you can jump to the specified header

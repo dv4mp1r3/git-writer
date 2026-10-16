@@ -168,16 +168,18 @@ class CreateNotebookViewModel(
                 )
             }
 
-            // activate the notebook in repository
-            notebookRepository.activateNotebook(notebook.id).onFailure {
-                _uiState.update { it.copy(errorMessage = "Failed to activate notebook") }
+            // activate the notebook in repository - when that fails the dialog stays open, so the error is seen
+            notebookRepository.activateNotebook(notebook.id).onSuccess {
+                snackbarManager.showMessage(SnackbarText.resource(
+                    if (isCreated) Res.string.msg_notebook_created
+                    else Res.string.msg_notebook_opened
+                ))
+                onSuccess()
+            }.onFailure { error ->
+                _uiState.update {
+                    it.copy(errorMessage = "Notebook was added but could not be opened: ${error.message}")
+                }
             }
-
-            snackbarManager.showMessage(SnackbarText.resource(
-                if (isCreated)Res.string.msg_notebook_created
-                else Res.string.msg_notebook_opened
-            ))
-            onSuccess()
         }.onFailure { error ->
             _uiState.update {
                 it.copy(
