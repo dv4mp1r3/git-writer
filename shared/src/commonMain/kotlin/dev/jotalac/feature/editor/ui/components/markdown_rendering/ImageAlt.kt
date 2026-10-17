@@ -34,3 +34,12 @@ fun parseImageAlt(alt: String?): ImageAlt {
         height = size.groupValues[2].toIntOrNull()?.takeIf { it > 0 },
     )
 }
+
+/** The alt text as it is written between the brackets of the image - [parseImageAlt] reads it back. */
+fun ImageAlt.toAltText(): String = buildString {
+    append(text.orEmpty())
+    if (width != null) {
+        append('|').append(width)
+        if (height != null) append('x').append(height)
+    }
+}

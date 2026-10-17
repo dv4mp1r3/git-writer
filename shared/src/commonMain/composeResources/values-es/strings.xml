@@ -169,4 +169,7 @@
     <!-- its own choice: the UI language and the language you write in often differ -->
     <string name="settings_spellcheck_language_label">Idioma del corrector ortográfico</string>
     <string name="settings_spellcheck_language_same_as_app">Igual que el idioma de la aplicación</string>
+    <string name="image_size_header">Tamaño de la imagen</string>
+    <string name="image_size_original">Tamaño original</string>
+    <string name="image_size_reset">Restablecer tamaño</string>
 </resources>

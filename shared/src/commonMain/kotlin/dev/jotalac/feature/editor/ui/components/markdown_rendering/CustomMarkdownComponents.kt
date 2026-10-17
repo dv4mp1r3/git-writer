@@ -70,16 +70,20 @@ fun CustomOrderedListComponent(model: MarkdownComponentModel) {
     )
 }
 
-// paragraph - plain text, or a block of its own when it holds nothing but an image or a maths expression
+// paragraph - plain text, or a block of its own when it holds nothing but an image or a maths expression.
+// [onImageResize] changes the block's text when its image is resized, see CustomImageComponent
 @Composable
-fun CustomParagraphComponent(model: MarkdownComponentModel) {
+fun CustomParagraphComponent(
+    model: MarkdownComponentModel,
+    onImageResize: ((String) -> Unit)? = null,
+) {
     val content = model.content
     val node = model.node
 
     // the library decides by the image's size - one smaller than 1.5 lines of text would stay inline
     // and ignore the size in its alt text (![photo|300](...))
     node.loneImage(content)?.let { image ->
-        CustomImageComponent(model.copy(node = image))
+        CustomImageComponent(model.copy(node = image), onImageResize)
         return
     }
 

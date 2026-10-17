@@ -170,4 +170,7 @@
     <!-- its own choice: the UI language and the language you write in often differ -->
     <string name="settings_spellcheck_language_label">拼写检查语言</string>
     <string name="settings_spellcheck_language_same_as_app">与应用语言相同</string>
+    <string name="image_size_header">图片大小</string>
+    <string name="image_size_original">原始大小</string>
+    <string name="image_size_reset">重置大小</string>
 </resources>

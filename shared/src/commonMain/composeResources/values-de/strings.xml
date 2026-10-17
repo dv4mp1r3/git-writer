@@ -170,4 +170,7 @@
     <!-- its own choice: the UI language and the language you write in often differ -->
     <string name="settings_spellcheck_language_label">Sprache der Rechtschreibprüfung</string>
     <string name="settings_spellcheck_language_same_as_app">Wie die Sprache der App</string>
+    <string name="image_size_header">Bildgröße</string>
+    <string name="image_size_original">Originalgröße</string>
+    <string name="image_size_reset">Größe zurücksetzen</string>
 </resources>
