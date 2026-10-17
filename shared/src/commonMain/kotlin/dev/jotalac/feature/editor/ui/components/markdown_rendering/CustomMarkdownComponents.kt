@@ -1,8 +1,6 @@
 package dev.jotalac.feature.editor.ui.components.markdown_rendering
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
@@ -10,23 +8,20 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.hrm.latex.renderer.LatexAutoWrap
-import com.hrm.latex.renderer.model.LatexConfig
-import com.hrm.latex.renderer.model.LatexTheme
-import com.mikepenz.markdown.annotator.AnnotatorSettings
 import com.mikepenz.markdown.annotator.annotatorSettings
-import com.mikepenz.markdown.model.DefaultMarkdownAnnotator
 import com.mikepenz.markdown.compose.components.MarkdownComponent
 import com.mikepenz.markdown.compose.components.MarkdownComponentModel
-import com.mikepenz.markdown.compose.elements.MarkdownImage
 import com.mikepenz.markdown.compose.elements.MarkdownListItems
 import com.mikepenz.markdown.compose.elements.MarkdownParagraph
 import com.mikepenz.markdown.compose.elements.listDepth
-import org.intellij.markdown.ast.ASTNode
 import org.intellij.markdown.ast.getTextInNode
+
+/*
+* The editor's own versions of the markdown library's components, used by RenderedEditorBlock.
+* Images live in CustomImageComponent.kt, maths in MarkdownMath.kt.
+* */
 
 // checkbox
 fun customCheckboxComponent(onCheckedChange: (Int, Boolean) -> Unit): MarkdownComponent = { model ->
@@ -42,6 +37,9 @@ fun customCheckboxComponent(onCheckedChange: (Int, Boolean) -> Unit): MarkdownCo
     }
 }
 
+// a different bullet for every nesting level, the deepest one repeats
+private val BULLETS = listOf("• ", "◦ ", "▪ ", "▫ ")
+
 // unordered list
 @Composable
 fun CustomUnorderedListComponent(model: MarkdownComponentModel) {
@@ -49,16 +47,14 @@ fun CustomUnorderedListComponent(model: MarkdownComponentModel) {
         content = model.content,
         node = model.node,
         depth = model.listDepth,
-        bullet = { startNumber, index, child ->
-            when (model.listDepth) {
-                0 -> Text("• ")
-                1 -> Text("◦ ")
-                2 -> Text("▪ ")
-                else -> Text("▫ ")
-            }
+        bullet = { _, _, _ ->
+            Text(BULLETS[model.listDepth % BULLETS.size])
         }
     )
 }
+
+// the numbers fade with every nesting level, then start over
+private val NUMBER_ALPHAS = listOf(0.8f, 0.6f, 0.4f)
 
 // ordered list
 @Composable
@@ -68,89 +64,34 @@ fun CustomOrderedListComponent(model: MarkdownComponentModel) {
         node = model.node,
         depth = model.listDepth,
         bullet = { index, _, _ ->
-            val color = when (model.listDepth % 3) {
-                0 -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
-                1 -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-            }
-            Text("${index + 1}.", color = color)
+            val alpha = NUMBER_ALPHAS[model.listDepth % NUMBER_ALPHAS.size]
+            Text("${index + 1}.", color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha))
         }
     )
 }
 
-// paragraph with latex block
+// paragraph - plain text, or a block of its own when it holds nothing but an image or a maths expression
 @Composable
 fun CustomParagraphComponent(model: MarkdownComponentModel) {
-    val mathNodes = model.node.children.filter { it.type.name in MATH_NODE_TYPES }
+    val content = model.content
+    val node = model.node
 
-    // a paragraph that is one expression and nothing else is a maths block: draw it as latex
-    if (mathNodes.isLoneExpression(model)) {
-        LatexExpression(model.content, mathNodes.single())
+    // the library decides by the image's size - one smaller than 1.5 lines of text would stay inline
+    // and ignore the size in its alt text (![photo|300](...))
+    node.loneImage(content)?.let { image ->
+        CustomImageComponent(model.copy(node = image))
         return
     }
 
-    if (mathNodes.isEmpty()) {
-        MarkdownParagraph(content = model.content, node = model.node)
+    node.loneMathExpression(content)?.let { expression ->
+        LatexExpression(content, expression)
         return
     }
 
-    // pragraph with maths in it: the library would drop the expression, so put its source back
-    // later version will be able to render the math expression inside the paragraph
     MarkdownParagraph(
-        content = model.content,
-        node = model.node,
-        annotatorSettings = keepMathSourceSettings()
+        content = content,
+        node = node,
+        // maths inside text is not rendered yet - without this the library would drop the expression
+        annotatorSettings = if (node.containsMath()) keepMathSourceSettings() else annotatorSettings(),
     )
-}
-
-// keep the math source inside the paragraph
-@Composable
-private fun keepMathSourceSettings(): AnnotatorSettings {
-    val librarySettings = annotatorSettings()
-
-    return annotatorSettings(
-        annotator = DefaultMarkdownAnnotator(
-            // the receiver is the AnnotatedString.Builder being filled
-            annotate = { content, node ->
-                if (node.type.name in MATH_NODE_TYPES) {
-                    append(node.getTextInNode(content))
-                    true
-                } else {
-                    librarySettings.annotator.annotate?.invoke(this, content, node) ?: false
-                }
-            },
-            config = librarySettings.annotator.config
-        )
-    )
-}
-
-@Composable
-private fun LatexExpression(content: String, mathNode: ASTNode) {
-    LatexAutoWrap(mathNode.latexSource(content), config = latexConfig())
-}
-
-// --- maths ---------------------------------------------------------------------------------------
-
-private val MATH_NODE_TYPES = setOf("BLOCK_MATH", "INLINE_MATH")
-
-// True when the paragraph is one expression and nothing else - no words to sit beside.
-private fun List<ASTNode>.isLoneExpression(model: MarkdownComponentModel): Boolean =
-    size == 1 && model.node.children.none { it !== single() && it.hasText(model) }
-
-// The latex source of an expression, without the `$` delimiters markdown wraps it in.
-private fun ASTNode.latexSource(content: String): String =
-    getTextInNode(content).toString().removeSurrounding("$$").removeSurrounding("$").trim()
-
-private fun ASTNode.hasText(model: MarkdownComponentModel): Boolean =
-    getTextInNode(model.content).isNotBlank()
-
-@Composable
-private fun latexConfig(): LatexConfig = LatexConfig(theme = LatexTheme.material3())
-
-// custom image component
-@Composable
-fun CustomImageComponent(model: MarkdownComponentModel) {
-    Box(modifier = Modifier.clip(RoundedCornerShape(8.dp))) {
-        MarkdownImage(content = model.content, node = model.node)
-    }
 }

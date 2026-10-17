@@ -2,8 +2,6 @@
 
 > high priority
 
-- add tests for core module 
-
 > medium priority
 
 - add note linking
