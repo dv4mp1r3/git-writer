@@ -12,12 +12,16 @@ import dev.jotalac.feature.git_sync.domain.GitSyncRepository
 import dev.jotalac.feature.notebooks_management.domain.AndroidNotebookPathProvider
 import dev.jotalac.feature.notebooks_management.domain.NotebookPathProvider
 import org.koin.android.ext.koin.androidContext
+import dev.jotalac.core.utils.NetworkMonitor
+import dev.jotalac.core.utils.DeviceNetworkMonitor
 import org.koin.core.module.Module
 import org.koin.dsl.module
 import java.io.File
 
 
 actual val platformModule: Module = module {
+    single<NetworkMonitor> { DeviceNetworkMonitor() }
+
     single<NotebookPathProvider> { AndroidNotebookPathProvider(context = androidContext()) }
 
     single<RoomDatabase.Builder<AppDatabase>> {

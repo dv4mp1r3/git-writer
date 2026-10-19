@@ -20,4 +20,5 @@ interface UserSettings {
     suspend fun setUseDynamicColor(useDynamicColor: Boolean)
     suspend fun setSpellcheckLanguage(language: AppLanguage?)
     suspend fun setEditorFullWidth(fullWidth: Boolean)
+    suspend fun setAutoSync(autoSync: Boolean)
 }

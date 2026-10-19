@@ -1,5 +1,8 @@
 package dev.jotalac.feature.editor.ui
 
+import dev.jotalac.core.data.UserSettingsState
+import dev.jotalac.core.utils.RemoteStatus
+import dev.jotalac.core.utils.RemoteStatusMonitor
 import dev.jotalac.core.utils.SnackbarManager
 import dev.jotalac.core.utils.SnackbarText
 import dev.jotalac.feature.notebooks_management.domain.Notebook
@@ -14,6 +17,7 @@ import git_writer.shared.generated.resources.err_failed_create_note
 import git_writer.shared.generated.resources.err_paste_image_no_notebook
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -33,14 +37,17 @@ class EditorScreenViewModelTest {
     private val editor = FakeEditorRepository()
     private val notebooks = FakeNotebookRepository()
     private val snackbar = SnackbarManager()
-    private val settings = FakeUserSettings()
+    // auto sync has its own tests - here its endless loop would keep advanceUntilIdle() from ever finishing
+    private val settings = FakeUserSettings(UserSettingsState(autoSync = false))
     private val gitSync = FakeGitSyncRepository()
+    // no network, so no request is ever made
+    private val remoteStatus = RemoteStatusMonitor({ false }, { flowOf(false) })
 
     private val notePath = "/notebook/demo.md"
     private val imagePath = "/notebook/picture.png"
 
     private fun createViewModel(): EditorViewModel =
-        EditorViewModel(notebooks, editor, snackbar, settings, gitSync)
+        EditorViewModel(notebooks, editor, snackbar, settings, gitSync, remoteStatus)
 
     /** Subscribes before anything is triggered: the flow does not replay, so a late read would miss it. */
     private fun TestScope.collectSnackbars(): List<SnackbarText> {
@@ -66,6 +73,34 @@ class EditorScreenViewModelTest {
         activeNotebook.value = notebook
         activeNote.value = path
         return notebook
+    }
+
+    // --- remote status ---
+
+    @Test
+    fun `the remote is only checked while the editor is watching`() = viewModelTest {
+        notebooks.activeNotebook.value = Notebook(1, "notebook", "/notebook", "https://github.com/me/notes.git", "me", "token")
+        val checkedUrls = mutableListOf<String>()
+        val viewModel = EditorViewModel(
+            notebooks, editor, snackbar, settings, gitSync,
+            RemoteStatusMonitor({ url -> checkedUrls += url; true }, { flowOf(true) }),
+        )
+        advanceUntilIdle()
+
+        // the app in the background - nothing collects the status, so nothing goes over the network
+        assertTrue(checkedUrls.isEmpty())
+
+        val editorWatching = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.remoteStatus.collect {}
+        }
+        advanceUntilIdle()
+
+        assertEquals(listOf("https://github.com/me/notes.git"), checkedUrls)
+        assertEquals(RemoteStatus.REACHABLE, viewModel.remoteStatus.value)
+
+        // back in the background - the checks stop once the 5 s grace period is over
+        editorWatching.cancel()
+        advanceUntilIdle()
     }
 
     // --- loading ---

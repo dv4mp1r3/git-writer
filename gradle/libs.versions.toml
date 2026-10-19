@@ -15,7 +15,7 @@ junit = "4.13.2"
 kotlin = "2.4.10"
 kotlinx-coroutines-test = "1.11.0"
 kotlinx-coroutines = "1.11.0"
-markdown-renderer = "0.44.0"
+markdown-renderer = "0.46.0"
 jetbrains-markdown = "0.7.9"
 navigationCompose = "2.9.2"
 koin = "4.2.2"
@@ -35,6 +35,8 @@ jna = "5.19.1"
 build-konfig = "0.22.0"
 nucleus-spell-check = "2.5.18"
 glance = "1.2.0"
+connectivity = "2.5.3"
+
 
 
 [libraries]
@@ -97,6 +99,13 @@ ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "kto
 latex-base = { module = "io.github.huarangmeng:latex-base", version.ref = "compose-latex" }
 latex-parser = { module = "io.github.huarangmeng:latex-parser", version.ref = "compose-latex" }
 latex-renderer = { module = "io.github.huarangmeng:latex-renderer", version.ref = "compose-latex" }
+
+connectivity-core = { module = "dev.jordond.connectivity:connectivity-core", version.ref = "connectivity" }
+connectivity-device = { module = "dev.jordond.connectivity:connectivity-device", version.ref = "connectivity" }
+connectivity-http = { module = "dev.jordond.connectivity:connectivity-http", version.ref = "connectivity" }
+
+
+
 
 
 

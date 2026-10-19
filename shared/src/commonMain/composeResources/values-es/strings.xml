@@ -79,6 +79,8 @@
     <string name="sync_status_failed">Error de sincronización. Toca para reintentar.</string>
     <string name="sync_status_conflict">Conflictos de fusión detectados. Toca para resolver.</string>
     <string name="sync_status_not_configured">La sincronización Git no está configurada.</string>
+    <string name="sync_status_offline">Sin conexión de red</string>
+    <string name="sync_status_remote_unreachable">No se puede acceder al repositorio remoto</string>
     <string name="undo_button">Deshacer</string>
     <string name="redo_button">Rehacer</string>
     <string name="settings_title">Ajustes</string>
@@ -111,6 +113,9 @@
     <string name="settings_sync_title">Sincronización Git</string>
     <string name="settings_sync_section_title">Resolución de conflictos</string>
     <string name="settings_sync_section_subtitle">Configura cómo se manejan los conflictos de fusión</string>
+    <string name="settings_auto_sync_title">Sincronización automática</string>
+    <string name="settings_auto_sync_subtitle">Al abrir, al cerrar y periódicamente</string>
+    <string name="settings_auto_sync_label">Sincronizar automáticamente</string>
     <string name="settings_conflict_strategy_label">Estrategia de resolución</string>
     <string name="settings_conflict_manual">Fusión manual</string>
     <string name="settings_conflict_auto">Fusión automática</string>
@@ -169,4 +174,7 @@
     <!-- its own choice: the UI language and the language you write in often differ -->
     <string name="settings_spellcheck_language_label">Idioma del corrector ortográfico</string>
     <string name="settings_spellcheck_language_same_as_app">Igual que el idioma de la aplicación</string>
+    <string name="image_size_header">Tamaño de la imagen</string>
+    <string name="image_size_original">Tamaño original</string>
+    <string name="image_size_reset">Restablecer tamaño</string>
 </resources>

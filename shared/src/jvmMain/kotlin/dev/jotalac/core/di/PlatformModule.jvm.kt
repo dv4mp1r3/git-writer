@@ -14,11 +14,15 @@ import dev.jotalac.feature.notebooks_management.domain.NotebookPathProvider
 import io.github.vinceglb.filekit.FileKit
 import io.github.vinceglb.filekit.filesDir
 import io.github.vinceglb.filekit.path
+import dev.jotalac.core.utils.NetworkMonitor
+import dev.jotalac.core.utils.PollingNetworkMonitor
 import org.koin.core.module.Module
 import org.koin.dsl.module
 import java.io.File
 
 actual val platformModule: Module = module {
+    single<NetworkMonitor> { PollingNetworkMonitor() }
+
     single<NotebookPathProvider> { DesktopNotebookPathProvider() }
 
     single<RoomDatabase.Builder<AppDatabase>> {

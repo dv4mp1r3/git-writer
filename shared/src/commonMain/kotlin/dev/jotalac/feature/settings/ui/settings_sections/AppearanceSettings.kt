@@ -196,7 +196,7 @@ private fun FontSettings(
     SettingsCollapsableSection(
         title = stringResource(Res.string.settings_font_title),
         subtitle = stringResource(Res.string.settings_font_subtitle),
-        initiallyExpanded = false
+        initiallyExpanded = true
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
@@ -238,7 +238,7 @@ private fun EditorWidthSettings(
     SettingsCollapsableSection(
         title = stringResource(Res.string.settings_editor_width_title),
         subtitle = stringResource(Res.string.settings_editor_width_subtitle),
-        initiallyExpanded = false
+        initiallyExpanded = true
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),

@@ -71,7 +71,9 @@ fun SettingsContent(
 
             SyncSettings(
                 selectedStrategy = userSettingsState.gitConflictStrategy,
-                onStrategyChange = { onAction(SettingsViewModel.SettingsAction.ChangeGitConflictStrategy(it)) }
+                onStrategyChange = { onAction(SettingsViewModel.SettingsAction.ChangeGitConflictStrategy(it)) },
+                autoSync = userSettingsState.autoSync,
+                onAutoSyncChange = { onAction(SettingsViewModel.SettingsAction.ChangeAutoSync(it)) },
             )
 
             // show current app version

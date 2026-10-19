@@ -125,7 +125,7 @@ private fun RenderedMarkdownBlock(
                 )
             },
             paragraph = { model ->
-                CustomParagraphComponent(model)
+                CustomParagraphComponent(model, onImageResize = { currentOnTextChange(it) })
             },
             checkbox = customCheckboxComponent { offset, isChecked ->
                 val newCheckbox = if (isChecked) "[x]" else "[ ]"
@@ -133,7 +133,7 @@ private fun RenderedMarkdownBlock(
             },
             unorderedList = { CustomUnorderedListComponent(it) },
             orderedList = { CustomOrderedListComponent(it) },
-            image = { CustomImageComponent(it) },
+            image = { CustomImageComponent(it, onTextChange = { newText -> currentOnTextChange(newText) }) },
         )
     }
 

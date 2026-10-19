@@ -79,6 +79,8 @@
     <string name="sync_status_failed">Synchronisierung fehlgeschlagen. Zum Wiederholen tippen.</string>
     <string name="sync_status_conflict">Merge-Konflikte erkannt. Zum Lösen tippen.</string>
     <string name="sync_status_not_configured">Git-Synchronisierung ist nicht eingerichtet.</string>
+    <string name="sync_status_offline">Offline - keine Netzwerkverbindung</string>
+    <string name="sync_status_remote_unreachable">Remote-Repository nicht erreichbar</string>
     <string name="undo_button">Rückgängig</string>
     <string name="redo_button">Wiederholen</string>
     <string name="settings_title">Einstellungen</string>
@@ -112,6 +114,9 @@
     <string name="settings_sync_title">Git-Synchronisierung</string>
     <string name="settings_sync_section_title">Konfliktlösung</string>
     <string name="settings_sync_section_subtitle">Legen Sie fest, wie Merge-Konflikte behandelt werden</string>
+    <string name="settings_auto_sync_title">Automatische Synchronisierung</string>
+    <string name="settings_auto_sync_subtitle">Beim Öffnen, Schließen und regelmäßig</string>
+    <string name="settings_auto_sync_label">Automatisch synchronisieren</string>
     <string name="settings_conflict_strategy_label">Lösungsstrategie</string>
     <string name="settings_conflict_manual">Manueller Merge</string>
     <string name="settings_conflict_auto">Automatischer Merge</string>
@@ -170,4 +175,7 @@
     <!-- its own choice: the UI language and the language you write in often differ -->
     <string name="settings_spellcheck_language_label">Sprache der Rechtschreibprüfung</string>
     <string name="settings_spellcheck_language_same_as_app">Wie die Sprache der App</string>
+    <string name="image_size_header">Bildgröße</string>
+    <string name="image_size_original">Originalgröße</string>
+    <string name="image_size_reset">Größe zurücksetzen</string>
 </resources>

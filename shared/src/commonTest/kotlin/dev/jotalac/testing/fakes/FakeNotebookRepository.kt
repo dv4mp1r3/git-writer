@@ -4,6 +4,7 @@ import dev.jotalac.feature.notebooks_management.domain.Notebook
 import dev.jotalac.feature.notebooks_management.domain.NotebookRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 
 class FakeNotebookRepository : NotebookRepository {
@@ -15,13 +16,23 @@ class FakeNotebookRepository : NotebookRepository {
     override val activeNotebookState: Flow<Notebook?> = activeNotebook
     override val activeNotePath: Flow<String?> = activeNote
 
-    override fun getAllNotebooks(): Flow<List<Notebook>> = notebooks
+    /** Makes loading the notebook list fail. */
+    var notebooksError: Throwable? = null
+
+    override fun getAllNotebooks(): Flow<List<Notebook>> =
+        notebooksError?.let { error -> flow { throw error } } ?: notebooks
 
     override fun getNotebookByIdAsFlow(id: Long): Flow<Notebook?> =
         notebooks.map { list -> list.firstOrNull { it.id == id } }
 
     /** Only tests that care about a returned notebook need to set this. */
     var notebookResult: Result<Notebook> = Result.failure(IllegalStateException("not stubbed"))
+
+    var deleteResult: Result<Unit> = Result.success(Unit)
+    /** What activateNotebook returns, [notebookResult] when not set. */
+    var activateResult: Result<Notebook>? = null
+    var baseDirectoryResult: Result<Unit> = Result.success(Unit)
+    val createdBaseDirectories = mutableListOf<String>()
 
     /** Names [isNotebookNameUnique] reports as taken. */
     val takenNames: MutableSet<String> = mutableSetOf()
@@ -30,6 +41,16 @@ class FakeNotebookRepository : NotebookRepository {
     val activatedNotes = mutableListOf<String>()
     val deletedNotebookIds = mutableListOf<Long>()
     val updatedNotebookIds = mutableListOf<Long>()
+    val notebookUpdates = mutableListOf<NotebookUpdate>()
+    val clonedNotebooks = mutableListOf<ClonedNotebook>()
+
+    data class NotebookUpdate(
+        val id: Long, val name: String, val remoteUrl: String?, val remoteUsername: String?, val remotePassword: String?,
+    )
+
+    data class ClonedNotebook(
+        val name: String, val directoryPath: String, val remoteUrl: String, val password: String, val username: String?,
+    )
     val closedActiveNotes = 0
 
     override suspend fun createNotebook(name: String, directoryPath: String): Result<Notebook> =
@@ -43,11 +64,14 @@ class FakeNotebookRepository : NotebookRepository {
         remoteUrl: String,
         remotePasswordOrToken: String,
         remoteUsername: String?,
-    ): Result<Notebook> = notebookResult
+    ): Result<Notebook> {
+        clonedNotebooks += ClonedNotebook(name, directoryPath, remoteUrl, remotePasswordOrToken, remoteUsername)
+        return notebookResult
+    }
 
     override suspend fun deleteNotebook(id: Long): Result<Unit> {
         deletedNotebookIds += id
-        return Result.success(Unit)
+        return deleteResult
     }
 
     override suspend fun updateNotebook(
@@ -58,12 +82,13 @@ class FakeNotebookRepository : NotebookRepository {
         remotePassword: String?,
     ): Result<Notebook> {
         updatedNotebookIds += id
+        notebookUpdates += NotebookUpdate(id, name, remoteUrl, remoteUsername, remotePassword)
         return notebookResult
     }
 
     override suspend fun activateNotebook(id: Long): Result<Notebook> {
         activatedNotebookIds += id
-        return notebookResult
+        return activateResult ?: notebookResult
     }
 
     /**
@@ -94,5 +119,8 @@ class FakeNotebookRepository : NotebookRepository {
     override suspend fun isNotebookNameUnique(name: String, excludeId: Long?): Boolean =
         name !in takenNames
 
-    override fun createBaseNotebooksDirectory(basePath: String): Result<Unit> = Result.success(Unit)
+    override fun createBaseNotebooksDirectory(basePath: String): Result<Unit> {
+        createdBaseDirectories += basePath
+        return baseDirectoryResult
+    }
 }

@@ -1,5 +1,11 @@
 package dev.jotalac.feature.editor.ui
 
+import dev.jotalac.core.utils.AppExitTasks
+import androidx.compose.runtime.DisposableEffect
+import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.Lifecycle
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -51,6 +57,27 @@ fun EditorScreen(
     WindowTitle(state.activeFilename)
 
     val rootFocusRequester = remember { FocusRequester() }
+
+    // only collected while the editor is visible - in the background the remote is not checked at all
+    val remoteStatus by viewModel.remoteStatus.collectAsStateWithLifecycle()
+
+    // auto sync: a last sync when the app goes to the background (mobile) or the window is minimized
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
+        viewModel.onAction(EditorAction.SyncBeforeLeaving)
+    }
+
+    // ...and when the desktop app is closed - the window waits for it before exiting
+    val appExitTasks = koinInject<AppExitTasks>()
+    DisposableEffect(viewModel) {
+        appExitTasks.register(viewModel) { viewModel.syncBeforeLeaving() }
+        onDispose { appExitTasks.unregister(viewModel) }
+    }
+
+    // the network may have changed while the app was in the background (or the window unfocused on desktop)
+    LifecycleResumeEffect(viewModel) {
+        viewModel.onAction(EditorAction.CheckRemoteStatus)
+        onPauseOrDispose { }
+    }
 
     // when there is no note open - focus the root
     LaunchedEffect(state.activeNotePath, state.isImage) {
@@ -133,12 +160,13 @@ fun EditorScreen(
             if (isCompactScreen) {
                 CompactEditorLayout(
                     markdownBlocks = blocks,
+                    scrollPositions = viewModel.noteScrollPositions,
                     filename = state.activeFilename,
                     activeNotePath = state.activeNotePath,
                     isImage = state.isImage,
                     isLoading = state.isLoading,
                     onAction = viewModel::onAction,
-                    gitSyncStatus = state.gitSyncStatus,
+                    gitSyncStatus = state.syncButtonStatus(remoteStatus),
                     openSettingsOnMobile = openSettingsOnMobile,
                     uiState = editorUiState,
                     onTabClick = viewModel::openTab,
@@ -148,12 +176,13 @@ fun EditorScreen(
             } else {
                 ExpandedEditorLayout(
                     markdownBlocks = blocks,
+                    scrollPositions = viewModel.noteScrollPositions,
                     filename = state.activeFilename,
                     activeNotePath = state.activeNotePath,
                     isImage = state.isImage,
                     isLoading = state.isLoading,
                     onAction = viewModel::onAction,
-                    gitSyncStatus = state.gitSyncStatus,
+                    gitSyncStatus = state.syncButtonStatus(remoteStatus),
                     openSettingsOnMobile = openSettingsOnMobile,
                     uiState = editorUiState,
                     onTabClick = viewModel::openTab,
@@ -168,6 +197,7 @@ fun EditorScreen(
 @Composable
 private fun CompactEditorLayout(
     markdownBlocks: List<String>,
+    scrollPositions: MutableMap<String, Int>,
     filename: String?,
     activeNotePath: String?,
     isImage: Boolean,
@@ -208,6 +238,7 @@ private fun CompactEditorLayout(
             },
             isLoading = isLoading,
             markdownBlocks = markdownBlocks,
+            scrollPositions = scrollPositions,
             onAction = onAction,
             gitSyncStatus = gitSyncStatus,
             uiState = uiState,
@@ -221,6 +252,7 @@ private fun CompactEditorLayout(
 @Composable
 private fun ExpandedEditorLayout(
     markdownBlocks: List<String>,
+    scrollPositions: MutableMap<String, Int>,
     filename: String?,
     activeNotePath: String?,
     isImage: Boolean,
@@ -252,6 +284,7 @@ private fun ExpandedEditorLayout(
             },
             isLoading = isLoading,
             markdownBlocks = markdownBlocks,
+            scrollPositions = scrollPositions,
             onAction = onAction,
             gitSyncStatus = gitSyncStatus,
             uiState = uiState,
@@ -272,6 +305,7 @@ private fun MainEditorScaffold(
     onToggleSidebar: () -> Unit,
     isLoading: Boolean,
     markdownBlocks: List<String>,
+    scrollPositions: MutableMap<String, Int>,
     onAction: (EditorAction) -> Unit,
     gitSyncStatus: GitSyncStatus,
     uiState: State<EditorScreenState>,
@@ -362,6 +396,7 @@ private fun MainEditorScaffold(
                 isImage = isImage,
                 activeNotePath = activeNotePath,
                 markdownBlocks = markdownBlocks,
+                scrollPositions = scrollPositions,
                 onAction = onAction,
                 findState = findState,
             )
@@ -376,11 +411,10 @@ private fun EditorContent(
     isImage: Boolean,
     activeNotePath: String?,
     markdownBlocks: List<String>,
+    scrollPositions: MutableMap<String, Int>,
     onAction: (EditorAction) -> Unit,
     findState: MarkdownFindState,
 ) {
-    // remember scroll position per note, so switching tabs doesn't reset it
-    val scrollPositions = remember { mutableMapOf<String, Int>() }
     findState.isEnabled = false
 
     if (isLoading) {

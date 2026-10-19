@@ -16,6 +16,7 @@ import dev.jotalac.feature.notebooks_management.domain.NotebookRepository
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.io.files.Path
+import kotlinx.io.files.SystemPathSeparator
 import kotlin.time.Duration.Companion.milliseconds
 import git_writer.shared.generated.resources.Res
 import git_writer.shared.generated.resources.err_failed_add_folder
@@ -44,7 +45,7 @@ class EditorSidebarViewModel(
 
     private var filesRefreshJob: Job? = null
 
-    private var suppressRenameTrigger = false
+    private var expectedNotePath: String? = null
 
 
     init {
@@ -89,8 +90,8 @@ class EditorSidebarViewModel(
 
                 // a note created outside the sidebar (Ctrl+N) isn't in the tree yet - refresh and
                 // start renaming it. Skip when we just created/moved/renamed the note ourselves.
-                if (suppressRenameTrigger) {
-                    suppressRenameTrigger = false
+                if (notePath != null && isExpectedNotePath(notePath)) {
+                    expectedNotePath = null
                 } else if (notePath != null && _uiState.value.fileTree != null && findNode(notePath) == null) {
                     refreshFileTree()
                     setRenameItem(notePath)
@@ -114,6 +115,12 @@ class EditorSidebarViewModel(
                 snackbarManager.showMessage(SnackbarText.resource(Res.string.msg_path_copied))
             }
         }
+    }
+
+    // the item itself, or a note inside a renamed / moved folder
+    private fun isExpectedNotePath(notePath: String): Boolean {
+        val expected = expectedNotePath ?: return false
+        return notePath == expected || notePath.startsWith("$expected$SystemPathSeparator")
     }
 
     private fun setRenameItem(path: String?) {
@@ -157,9 +164,9 @@ class EditorSidebarViewModel(
             editorRepository.renameItem(path, safeName)
                 .onSuccess {
                     setRenameItem(null)
-                    suppressRenameTrigger = true
                     val parentPath = Path(path).parent
                     val newPath = if (parentPath != null) Path(parentPath, safeName).toString() else safeName
+                    expectedNotePath = newPath
                     notebookRepository.syncActiveNotePathOnMoved(path, newPath)
                     refreshFileTree()
                 }.onFailure {
@@ -307,7 +314,7 @@ class EditorSidebarViewModel(
                 .onSuccess { newPath ->
                     expandFolder(targetPath)
                     refreshFileTree()
-                    suppressRenameTrigger = true
+                    expectedNotePath = newPath
                     setActiveNote(newPath)
                     setRenameItem(newPath)
                 }.onFailure {
@@ -338,15 +345,14 @@ class EditorSidebarViewModel(
 
     private fun moveItem(sourcePath: String, destinationDirectoryPath: String) {
         viewModelScope.launch {
-            suppressRenameTrigger = true
             editorRepository.moveItem(sourcePath, destinationDirectoryPath)
                 .onSuccess {
                     val itemName = Path(sourcePath).name
                     val newPath = Path(Path(destinationDirectoryPath), itemName).toString()
+                    expectedNotePath = newPath
                     notebookRepository.syncActiveNotePathOnMoved(sourcePath, newPath)
                     refreshFileTree()
                 }.onFailure {
-                    suppressRenameTrigger = false
                     snackbarManager.showMessage(SnackbarText.message(Res.string.err_failed_move, it.message))
                 }
         }

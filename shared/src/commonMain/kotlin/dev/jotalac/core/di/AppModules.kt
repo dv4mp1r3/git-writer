@@ -7,6 +7,10 @@ import dev.jotalac.core.data.ActiveNotebookManager
 import dev.jotalac.core.data.UserSettings
 import dev.jotalac.core.data.UserSettingsManager
 import dev.jotalac.core.database.AppDatabase
+import dev.jotalac.core.utils.AppExitTasks
+import dev.jotalac.core.utils.HttpRemoteReachability
+import dev.jotalac.core.utils.RemoteReachability
+import dev.jotalac.core.utils.RemoteStatusMonitor
 import dev.jotalac.core.utils.SnackbarManager
 import dev.jotalac.feature.editor.data.EditorRepositoryImpl
 import dev.jotalac.feature.editor.domain.EditorRepository
@@ -18,6 +22,7 @@ import dev.jotalac.feature.notebooks_management.ui.create_notebook.CreateNoteboo
 import dev.jotalac.feature.notebooks_management.ui.edit_notebook.EditNotebookViewModel
 import dev.jotalac.feature.notebooks_management.ui.list_notebooks.NotebookListViewModel
 import dev.jotalac.feature.settings.ui.SettingsViewModel
+import io.ktor.client.HttpClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import org.koin.core.context.startKoin
@@ -47,6 +52,13 @@ val coreModule = module {
     single { ActiveNotebookManager(get()) }
 
     single<UserSettings> { UserSettingsManager(get()) }
+
+    single { AppExitTasks() }
+
+    single { HttpClient() }
+    single<RemoteReachability> { HttpRemoteReachability(get()) }
+    single { RemoteStatusMonitor(get(), get()) }
+
 
 }
 

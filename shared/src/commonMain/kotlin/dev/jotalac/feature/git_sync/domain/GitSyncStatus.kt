@@ -6,6 +6,10 @@ sealed interface GitSyncStatus {
     data object GitSyncFailed : GitSyncStatus
     data object GitSyncNotConfigured : GitSyncStatus
     data class Conflict(val files: Set<String>) : GitSyncStatus
+
+    // shown instead of the git status while the remote cannot be reached, see EditorScreenState.syncButtonStatus
+    data object Offline : GitSyncStatus
+    data object RemoteUnreachable : GitSyncStatus
 //    data object PulledChanges : SyncStatus
 //    data object PushedChanges : SyncStatus
 //    data object PulledAndPushedChanges : SyncStatus

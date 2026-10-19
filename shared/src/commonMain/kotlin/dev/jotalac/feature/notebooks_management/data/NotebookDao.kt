@@ -21,6 +21,9 @@ interface NotebookDao {
     @Query("SELECT * FROM notebooks WHERE name = :name")
     suspend fun getNotebookByName(name: String): NotebookEntity?
 
+    @Query("SELECT * FROM notebooks WHERE directoryPath = :directoryPath")
+    suspend fun getNotebookByDirectoryPath(directoryPath: String): NotebookEntity?
+
     @Query("SELECT * FROM notebooks WHERE name = :name AND id != :excludeId")
     suspend fun getNotebookByNameExcludingId(name: String, excludeId: Long): NotebookEntity?
 

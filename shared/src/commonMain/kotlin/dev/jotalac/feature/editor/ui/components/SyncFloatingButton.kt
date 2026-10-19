@@ -6,6 +6,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
@@ -16,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import dev.jotalac.core.ui.components.DelayedTooltip
 import dev.jotalac.core.ui.theme.AppTheme
 import dev.jotalac.feature.git_sync.domain.GitSyncStatus
 import git_writer.shared.generated.resources.*
@@ -31,7 +33,10 @@ fun SyncFloatingButton(
     modifier: Modifier = Modifier,
 ) {
     val isSyncing = gitSyncStatus is GitSyncStatus.Syncing
-    val isEnabled = gitSyncStatus !is GitSyncStatus.Syncing && gitSyncStatus !is GitSyncStatus.GitSyncNotConfigured
+    // unreachable stays enabled - the check can be wrong, and a sync is the way to retry (offline is only in mobile - that is reliable)
+    val isEnabled = gitSyncStatus !is GitSyncStatus.Syncing &&
+        gitSyncStatus !is GitSyncStatus.GitSyncNotConfigured &&
+        gitSyncStatus !is GitSyncStatus.Offline
 
     val infiniteTransition = rememberInfiniteTransition(label = "sync_rotation")
     val rotationAngle by if (isSyncing) {
@@ -54,6 +59,8 @@ fun SyncFloatingButton(
         is GitSyncStatus.GitSyncFailed -> MaterialTheme.colorScheme.errorContainer
         is GitSyncStatus.Conflict -> MaterialTheme.colorScheme.error
         is GitSyncStatus.GitSyncNotConfigured -> MaterialTheme.colorScheme.surfaceContainerHigh
+        is GitSyncStatus.Offline -> MaterialTheme.colorScheme.surfaceContainerHigh
+        is GitSyncStatus.RemoteUnreachable -> MaterialTheme.colorScheme.tertiaryContainer
     }
 
     val targetContentColor = when (gitSyncStatus) {
@@ -62,6 +69,8 @@ fun SyncFloatingButton(
         is GitSyncStatus.GitSyncFailed -> MaterialTheme.colorScheme.onErrorContainer
         is GitSyncStatus.Conflict -> MaterialTheme.colorScheme.onError
         is GitSyncStatus.GitSyncNotConfigured -> MaterialTheme.colorScheme.outline
+        is GitSyncStatus.Offline -> MaterialTheme.colorScheme.outline
+        is GitSyncStatus.RemoteUnreachable -> MaterialTheme.colorScheme.onTertiaryContainer
     }
 
     val targetShadowColor = when (gitSyncStatus) {
@@ -70,6 +79,8 @@ fun SyncFloatingButton(
         is GitSyncStatus.GitSyncFailed -> MaterialTheme.colorScheme.error.copy(alpha = 0.05f)
         is GitSyncStatus.Conflict -> MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
         is GitSyncStatus.GitSyncNotConfigured -> Color.Transparent
+        is GitSyncStatus.Offline -> Color.Transparent
+        is GitSyncStatus.RemoteUnreachable -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.1f)
     }
 
     val animatedContainerColor by animateColorAsState(
@@ -90,25 +101,32 @@ fun SyncFloatingButton(
         label = "fabShadowColor"
     )
 
-    FloatingActionButton(
-        onClick = { if (isEnabled) onClick() },
-        modifier = modifier.dropShadow(
-            shape = CircleShape,
-            shadow = Shadow(
-                radius = 10.dp,
-                color = animatedShadowColor,
-                spread = 5.dp
-            )
-        ),
-//        shape = CircleShape,
-        containerColor = animatedContainerColor,
-        contentColor = animatedContentColor,
+    val description = stringResource(getContentDescription(gitSyncStatus))
+
+    // the status in words - after hovering a while on desktop, on long press on mobile
+    DelayedTooltip(
+        text = description,
+        anchorPosition = TooltipAnchorPosition.Left
     ) {
-        Icon(
-            painter = painterResource(getIcon(gitSyncStatus)),
-            contentDescription = stringResource(getContentDescription(gitSyncStatus)),
-            modifier = if (isSyncing) Modifier.rotate(rotationAngle) else Modifier
-        )
+        FloatingActionButton(
+            onClick = { if (isEnabled) onClick() },
+            modifier = modifier.dropShadow(
+                shape = CircleShape,
+                shadow = Shadow(
+                    radius = 10.dp,
+                    color = animatedShadowColor,
+                    spread = 5.dp
+                )
+            ),
+            containerColor = animatedContainerColor,
+            contentColor = animatedContentColor,
+        ) {
+            Icon(
+                painter = painterResource(getIcon(gitSyncStatus)),
+                contentDescription = description,
+                modifier = if (isSyncing) Modifier.rotate(rotationAngle) else Modifier
+            )
+        }
     }
 }
 
@@ -118,6 +136,8 @@ private fun getIcon(gitSyncStatus: GitSyncStatus): DrawableResource = when (gitS
     is GitSyncStatus.GitSyncFailed -> Res.drawable.sync_error
     is GitSyncStatus.Conflict -> Res.drawable.git_merge_conflict
     is GitSyncStatus.GitSyncNotConfigured -> Res.drawable.sync_lock
+    is GitSyncStatus.Offline -> Res.drawable.wifi_off
+    is GitSyncStatus.RemoteUnreachable -> Res.drawable.cloud_off
 }
 
 private fun getContentDescription(gitSyncStatus: GitSyncStatus): StringResource = when (gitSyncStatus) {
@@ -126,6 +146,8 @@ private fun getContentDescription(gitSyncStatus: GitSyncStatus): StringResource 
     is GitSyncStatus.GitSyncFailed -> Res.string.sync_status_failed
     is GitSyncStatus.Conflict -> Res.string.sync_status_conflict
     is GitSyncStatus.GitSyncNotConfigured -> Res.string.sync_status_not_configured
+    is GitSyncStatus.Offline -> Res.string.sync_status_offline
+    is GitSyncStatus.RemoteUnreachable -> Res.string.sync_status_remote_unreachable
 }
 
 @Preview

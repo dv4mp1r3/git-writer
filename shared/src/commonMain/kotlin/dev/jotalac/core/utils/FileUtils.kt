@@ -60,7 +60,8 @@ fun Path.traverse(): List<FileNode> {
                 )
             } else null
         }
-    }.sortedWith(compareBy<FileNode> { it is FileNode.File }.thenBy { it.name })
+    // directories first then files, all sorted alphabetically
+    }.sortedWith(compareBy<FileNode> { it is FileNode.File }.thenBy(String.CASE_INSENSITIVE_ORDER) { it.name })
 }
 
 val IMAGE_FILE_EXTENSIONS = listOf(".png", ".jpg", ".jpeg", ".svg", ".gif", ".webp")

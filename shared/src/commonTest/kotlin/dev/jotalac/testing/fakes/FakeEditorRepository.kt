@@ -12,6 +12,10 @@ class FakeEditorRepository : EditorRepository {
     var saveResult: Result<Unit> = Result.success(Unit)
     var createNoteResult: Result<String> = Result.success("/notebook/untitled.md")
     var pastedImageResult: Result<Unit> = Result.success(Unit)
+    var addFolderResult: Result<Unit> = Result.success(Unit)
+    var moveResult: Result<Unit> = Result.success(Unit)
+    var renameResult: Result<Unit> = Result.success(Unit)
+    var deleteResult: Result<Unit> = Result.success(Unit)
 
     /** Paths [fileExists] reports as present, so a test can drive the image branch per path. */
     val existingPaths: MutableSet<String> = mutableSetOf()
@@ -58,22 +62,22 @@ class FakeEditorRepository : EditorRepository {
 
     override suspend fun addFolder(folderName: String, filePath: String): Result<Unit> {
         addedFolders += filePath to folderName
-        return Result.success(Unit)
+        return addFolderResult
     }
 
     override suspend fun moveItem(sourcePath: String, destinationDirectoryPath: String): Result<Unit> {
         movedItems += sourcePath to destinationDirectoryPath
-        return Result.success(Unit)
+        return moveResult
     }
 
     override suspend fun renameItem(sourcePath: String, newName: String): Result<Unit> {
         renamedItems += sourcePath to newName
-        return Result.success(Unit)
+        return renameResult
     }
 
     override suspend fun deleteItem(path: String): Result<Unit> {
         deletedPaths += path
-        return Result.success(Unit)
+        return deleteResult
     }
 
     override suspend fun savePastedImage(

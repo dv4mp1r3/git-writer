@@ -79,6 +79,8 @@
     <string name="sync_status_failed">同步失败。点按以重试。</string>
     <string name="sync_status_conflict">检测到合并冲突。点按以解决。</string>
     <string name="sync_status_not_configured">未配置 Git 同步。</string>
+    <string name="sync_status_offline">离线 - 无网络连接</string>
+    <string name="sync_status_remote_unreachable">无法访问远程仓库</string>
     <string name="undo_button">撤销</string>
     <string name="redo_button">重做</string>
     <string name="settings_title">设置</string>
@@ -112,6 +114,9 @@
     <string name="settings_sync_title">Git 同步</string>
     <string name="settings_sync_section_title">冲突解决</string>
     <string name="settings_sync_section_subtitle">配置合并冲突的处理方式</string>
+    <string name="settings_auto_sync_title">自动同步</string>
+    <string name="settings_auto_sync_subtitle">打开、关闭时及定期同步</string>
+    <string name="settings_auto_sync_label">自动同步</string>
     <string name="settings_conflict_strategy_label">解决策略</string>
     <string name="settings_conflict_manual">手动合并</string>
     <string name="settings_conflict_auto">自动合并</string>
@@ -170,4 +175,7 @@
     <!-- its own choice: the UI language and the language you write in often differ -->
     <string name="settings_spellcheck_language_label">拼写检查语言</string>
     <string name="settings_spellcheck_language_same_as_app">与应用语言相同</string>
+    <string name="image_size_header">图片大小</string>
+    <string name="image_size_original">原始大小</string>
+    <string name="image_size_reset">重置大小</string>
 </resources>

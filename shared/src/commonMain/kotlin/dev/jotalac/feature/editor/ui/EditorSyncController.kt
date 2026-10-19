@@ -11,6 +11,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import git_writer.shared.generated.resources.Res
 import git_writer.shared.generated.resources.err_failed_abort_sync
 import git_writer.shared.generated.resources.err_failed_resolve_conflict
@@ -35,7 +37,11 @@ class EditorSyncController(
     private val reloadNote: suspend (String) -> Unit,
 ) {
 
-    suspend fun sync() {
+    // automatic syncs start on their own - two git operations on the same repository at once would fail,
+    // so a sync started while another one runs waits for it
+    private val syncMutex = Mutex()
+
+    suspend fun sync(): Unit = syncMutex.withLock {
         val notebook = notebookRepository.activeNotebookState.firstOrNull() ?: return
         if (notebook.remoteUrl.isNullOrBlank() || notebook.remotePassword.isNullOrBlank()) return
 
