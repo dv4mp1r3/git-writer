@@ -1,5 +1,9 @@
 package dev.jotalac.feature.editor.ui
 
+import dev.jotalac.core.utils.AppExitTasks
+import androidx.compose.runtime.DisposableEffect
+import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.Lifecycle
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.foundation.focusable
@@ -56,6 +60,18 @@ fun EditorScreen(
 
     // only collected while the editor is visible - in the background the remote is not checked at all
     val remoteStatus by viewModel.remoteStatus.collectAsStateWithLifecycle()
+
+    // auto sync: a last sync when the app goes to the background (mobile) or the window is minimized
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
+        viewModel.onAction(EditorAction.SyncBeforeLeaving)
+    }
+
+    // ...and when the desktop app is closed - the window waits for it before exiting
+    val appExitTasks = koinInject<AppExitTasks>()
+    DisposableEffect(viewModel) {
+        appExitTasks.register(viewModel) { viewModel.syncBeforeLeaving() }
+        onDispose { appExitTasks.unregister(viewModel) }
+    }
 
     // the network may have changed while the app was in the background (or the window unfocused on desktop)
     LifecycleResumeEffect(viewModel) {

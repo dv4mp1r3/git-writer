@@ -6,6 +6,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
@@ -16,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import dev.jotalac.core.ui.components.DelayedTooltip
 import dev.jotalac.core.ui.theme.AppTheme
 import dev.jotalac.feature.git_sync.domain.GitSyncStatus
 import git_writer.shared.generated.resources.*
@@ -99,25 +101,32 @@ fun SyncFloatingButton(
         label = "fabShadowColor"
     )
 
-    FloatingActionButton(
-        onClick = { if (isEnabled) onClick() },
-        modifier = modifier.dropShadow(
-            shape = CircleShape,
-            shadow = Shadow(
-                radius = 10.dp,
-                color = animatedShadowColor,
-                spread = 5.dp
-            )
-        ),
-//        shape = CircleShape,
-        containerColor = animatedContainerColor,
-        contentColor = animatedContentColor,
+    val description = stringResource(getContentDescription(gitSyncStatus))
+
+    // the status in words - after hovering a while on desktop, on long press on mobile
+    DelayedTooltip(
+        text = description,
+        anchorPosition = TooltipAnchorPosition.Left
     ) {
-        Icon(
-            painter = painterResource(getIcon(gitSyncStatus)),
-            contentDescription = stringResource(getContentDescription(gitSyncStatus)),
-            modifier = if (isSyncing) Modifier.rotate(rotationAngle) else Modifier
-        )
+        FloatingActionButton(
+            onClick = { if (isEnabled) onClick() },
+            modifier = modifier.dropShadow(
+                shape = CircleShape,
+                shadow = Shadow(
+                    radius = 10.dp,
+                    color = animatedShadowColor,
+                    spread = 5.dp
+                )
+            ),
+            containerColor = animatedContainerColor,
+            contentColor = animatedContentColor,
+        ) {
+            Icon(
+                painter = painterResource(getIcon(gitSyncStatus)),
+                contentDescription = description,
+                modifier = if (isSyncing) Modifier.rotate(rotationAngle) else Modifier
+            )
+        }
     }
 }
 

@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlin.random.Random
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import git_writer.shared.generated.resources.Res
 import git_writer.shared.generated.resources.err_create_note_no_notebook
@@ -57,7 +58,7 @@ class EditorViewModel(
         userSettingsManager = userSettingsManager,
         state = _uiState,
         saveCurrentNote = { saveNotesContent(markdownBlocks) },
-        reloadNote = { loadFileContent(it) },
+        reloadNote = { reloadIfChanged(it) },
     )
 
     private var nextTabId = 1L
@@ -66,6 +67,10 @@ class EditorViewModel(
     private var loadedNotePath: String? = null
 
     private var autosaveJob: Job? = null
+
+    // true from an edit until the typing has paused for TYPING_PAUSE - an automatic sync waits for that
+    private val isTyping = MutableStateFlow(false)
+    private var typingPauseJob: Job? = null
 
     init {
         // load / unload the file whenever the active note changes
@@ -92,7 +97,10 @@ class EditorViewModel(
             }
         }
 
-        // reset the tabs when the active notebook changes - tabs from another notebook are stale
+        /**
+         * reset the tabs when the active notebook changes - tabs from another notebook are stale
+         * sync notes for the newly create notebook
+        **/
         viewModelScope.launch {
             var previousNotebookId: Long? = null
             notebookRepository.activeNotebookState
@@ -113,6 +121,58 @@ class EditorViewModel(
             }
         }
 
+        // auto sync: when a notebook is opened (so also on app start), then every 10 minutes while it stays
+        // open. Another notebook restarts it, turning the setting off stops it
+        viewModelScope.launch {
+            autoSyncNotebookId().collectLatest { notebookId ->
+                if (notebookId == null) return@collectLatest
+                while (true) {
+                    awaitTypingPause()
+                    syncController.sync()
+                    delay(AUTO_SYNC_INTERVAL)
+                }
+            }
+        }
+    }
+
+
+    // the active notebook's id while auto sync is on and the notebook has a remote to sync with
+    private fun autoSyncNotebookId(): Flow<Long?> = combine(
+        userSettingsManager.userSettingsStateFlow.map { it.autoSync },
+        notebookRepository.activeNotebookState,
+    ) { autoSync, notebook ->
+        notebook?.takeIf { autoSync && !it.remoteUrl.isNullOrBlank() && !it.remotePassword.isNullOrBlank() }?.id
+    }.distinctUntilChanged()
+
+    // pulled changes could replace the note in the middle of a sentence - an automatic sync waits until
+    // the typing has paused (without any typing it starts right away)
+    private suspend fun awaitTypingPause() {
+        isTyping.first { !it }
+    }
+
+    private fun onTyped() {
+        isTyping.value = true
+        typingPauseJob?.cancel()
+        typingPauseJob = viewModelScope.launch {
+            delay(TYPING_PAUSE)
+            isTyping.value = false
+        }
+    }
+
+    /**
+     * The last sync before leaving: the app going to the background (on mobile possibly closed for good -
+     * best effort, the OS may stop it) or the desktop app exiting. Only with auto sync on.
+     */
+    suspend fun syncBeforeLeaving() {
+        if (autoSyncNotebookId().first() != null) syncController.sync()
+    }
+
+    // after a sync - reloading resets the editor (focus, cursor), so only when the pull changed the open note
+    private suspend fun reloadIfChanged(notePath: String) {
+        val onDisk = editorRepository.readNoteContent(notePath).getOrNull()
+        if (onDisk == null || onDisk != markdownBlocks.joinToString("\n\n")) {
+            loadFileContent(notePath)
+        }
     }
 
 
@@ -324,6 +384,7 @@ class EditorViewModel(
             )
 
             is EditorAction.SyncNotes -> viewModelScope.launch { syncController.sync() }
+            is EditorAction.SyncBeforeLeaving -> viewModelScope.launch { syncBeforeLeaving() }
             is EditorAction.CheckRemoteStatus -> remoteStatusMonitor.checkNow()
             is EditorAction.ResolveSingleConflict -> viewModelScope.launch {
                 syncController.resolveSingleConflict(action.filePath, action.keepLocalChanges)
@@ -342,7 +403,10 @@ class EditorViewModel(
             is EditorAction.NewNote -> createNewNote()
         }
 
-        if (action.isBlockEditing()) scheduleAutosave()
+        if (action.isBlockEditing()) {
+            onTyped()
+            scheduleAutosave()
+        }
     }
 
     private fun savePastedImages(
@@ -383,3 +447,6 @@ class EditorViewModel(
         }
     }
 }
+
+private val AUTO_SYNC_INTERVAL = 10.minutes
+private val TYPING_PAUSE = 3.seconds

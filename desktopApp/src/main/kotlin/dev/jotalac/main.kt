@@ -1,5 +1,13 @@
 package dev.jotalac
 
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.launch
+import dev.jotalac.core.di.runAppExitTasks
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
@@ -30,8 +38,21 @@ fun main() {
     jgitBypassUrlRewrite()
 
     application {
+        val scope = rememberCoroutineScope()
+        var isClosing by remember { mutableStateOf(false) }
+
         Window(
-            onCloseRequest = ::exitApplication,
+            // the window disappears at once, the app exits after its last sync (auto sync) - at most 15 s
+            onCloseRequest = {
+                if (!isClosing) {
+                    isClosing = true
+                    scope.launch {
+                        withTimeoutOrNull(15.seconds) { runAppExitTasks() }
+                        exitApplication()
+                    }
+                }
+            },
+            visible = !isClosing,
             state = rememberWindowState(),
             title = APP_WINDOW_TITLE,
             icon = painterResource(Res.drawable.app_logo),

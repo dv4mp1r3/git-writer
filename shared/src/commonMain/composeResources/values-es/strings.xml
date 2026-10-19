@@ -113,6 +113,9 @@
     <string name="settings_sync_title">Sincronización Git</string>
     <string name="settings_sync_section_title">Resolución de conflictos</string>
     <string name="settings_sync_section_subtitle">Configura cómo se manejan los conflictos de fusión</string>
+    <string name="settings_auto_sync_title">Sincronización automática</string>
+    <string name="settings_auto_sync_subtitle">Al abrir, al cerrar y periódicamente</string>
+    <string name="settings_auto_sync_label">Sincronizar automáticamente</string>
     <string name="settings_conflict_strategy_label">Estrategia de resolución</string>
     <string name="settings_conflict_manual">Fusión manual</string>
     <string name="settings_conflict_auto">Fusión automática</string>

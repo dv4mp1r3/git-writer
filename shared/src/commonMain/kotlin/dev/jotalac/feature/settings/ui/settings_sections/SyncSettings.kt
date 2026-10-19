@@ -21,6 +21,8 @@ import org.jetbrains.compose.resources.stringResource
 fun SyncSettings(
     selectedStrategy: GitConflictResolutionStrategy,
     onStrategyChange: (GitConflictResolutionStrategy) -> Unit,
+    autoSync: Boolean,
+    onAutoSyncChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -31,6 +33,8 @@ fun SyncSettings(
             stringResource(Res.string.settings_sync_title),
             Res.drawable.git_merge
         )
+
+        AutoSyncSettings(autoSync = autoSync, onAutoSyncChange = onAutoSyncChange)
 
         SettingsCollapsableSection(
             title = stringResource(Res.string.settings_sync_section_title),
@@ -150,6 +154,35 @@ fun SyncSettings(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun AutoSyncSettings(
+    autoSync: Boolean,
+    onAutoSyncChange: (Boolean) -> Unit,
+) {
+    SettingsCollapsableSection(
+        title = stringResource(Res.string.settings_auto_sync_title),
+        subtitle = stringResource(Res.string.settings_auto_sync_subtitle),
+        initiallyExpanded = true
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = stringResource(Res.string.settings_auto_sync_label),
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.weight(1f)
+            )
+
+            Switch(
+                checked = autoSync,
+                onCheckedChange = onAutoSyncChange
+            )
         }
     }
 }

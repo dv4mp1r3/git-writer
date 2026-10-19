@@ -45,6 +45,9 @@ class SettingsViewModel(
 
                 is SettingsAction.ChangeUseDynamicColor ->
                     userSettingsManager.setUseDynamicColor(action.useDynamicColor)
+
+                is SettingsAction.ChangeAutoSync ->
+                    userSettingsManager.setAutoSync(action.autoSync)
             }
         }
     }
@@ -59,5 +62,6 @@ class SettingsViewModel(
         data class ChangeSpellcheckLanguage(val language: AppLanguage?) : SettingsAction
         data class ChangeGitConflictStrategy(val strategy: GitConflictResolutionStrategy) : SettingsAction
         data class ChangeUseDynamicColor(val useDynamicColor: Boolean) : SettingsAction
+        data class ChangeAutoSync(val autoSync: Boolean) : SettingsAction
     }
 }

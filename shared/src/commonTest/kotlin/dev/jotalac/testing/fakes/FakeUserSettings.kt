@@ -30,6 +30,11 @@ class FakeUserSettings(
         settings.value = settings.value.copy(editorFullWidth = fullWidth)
     }
 
+    override suspend fun setAutoSync(autoSync: Boolean) {
+        calledWrites += "autoSync"
+        settings.value = settings.value.copy(autoSync = autoSync)
+    }
+
     override suspend fun setSpellcheckLanguage(language: AppLanguage?) {
         calledWrites += "spellcheckLanguage"
         settings.value = settings.value.copy(spellcheckLanguage = language)

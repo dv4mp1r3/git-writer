@@ -114,6 +114,9 @@
     <string name="settings_sync_title">Git Sync</string>
     <string name="settings_sync_section_title">Conflict resolution</string>
     <string name="settings_sync_section_subtitle">Configure how merge conflicts are handled</string>
+    <string name="settings_auto_sync_title">Auto sync</string>
+    <string name="settings_auto_sync_subtitle">Sync on open, on close and periodically</string>
+    <string name="settings_auto_sync_label">Sync automatically</string>
     <string name="settings_conflict_strategy_label">Resolution strategy</string>
     <string name="settings_conflict_manual">Manual merge</string>
     <string name="settings_conflict_auto">Auto merge</string>

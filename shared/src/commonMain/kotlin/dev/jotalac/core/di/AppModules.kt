@@ -7,6 +7,7 @@ import dev.jotalac.core.data.ActiveNotebookManager
 import dev.jotalac.core.data.UserSettings
 import dev.jotalac.core.data.UserSettingsManager
 import dev.jotalac.core.database.AppDatabase
+import dev.jotalac.core.utils.AppExitTasks
 import dev.jotalac.core.utils.HttpRemoteReachability
 import dev.jotalac.core.utils.RemoteReachability
 import dev.jotalac.core.utils.RemoteStatusMonitor
@@ -51,6 +52,8 @@ val coreModule = module {
     single { ActiveNotebookManager(get()) }
 
     single<UserSettings> { UserSettingsManager(get()) }
+
+    single { AppExitTasks() }
 
     single { HttpClient() }
     single<RemoteReachability> { HttpRemoteReachability(get()) }

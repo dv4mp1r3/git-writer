@@ -114,6 +114,9 @@
     <string name="settings_sync_title">Synchronizace Git</string>
     <string name="settings_sync_section_title">Řešení konfliktů</string>
     <string name="settings_sync_section_subtitle">Nastavte způsob řešení konfliktů při sloučení</string>
+    <string name="settings_auto_sync_title">Automatická synchronizace</string>
+    <string name="settings_auto_sync_subtitle">Při otevření, zavření a pravidelně</string>
+    <string name="settings_auto_sync_label">Synchronizovat automaticky</string>
     <string name="settings_conflict_strategy_label">Strategie řešení</string>
     <string name="settings_conflict_manual">Ruční sloučení</string>
     <string name="settings_conflict_auto">Automatické sloučení</string>

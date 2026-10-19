@@ -17,7 +17,8 @@ data class UserSettingsState(
     val gitConflictStrategy: GitConflictResolutionStrategy = GitConflictResolutionStrategy.MANUAL,
     val useDynamicColor: Boolean = false,
     val spellcheckLanguage: AppLanguage? = null,
-    val editorFullWidth: Boolean = false
+    val editorFullWidth: Boolean = false,
+    val autoSync: Boolean = true,
 )
 
 class UserSettingsManager(
@@ -32,6 +33,7 @@ class UserSettingsManager(
         private val USE_DYNAMIC_COLOR_KEY = booleanPreferencesKey("dynamic_color")
         private val SPELLCHECK_LANGUAGE_KEY = stringPreferencesKey("spellcheck_language")
         private val EDITOR_FULL_WIDTH_KEY = booleanPreferencesKey("editor_full_width")
+        private val AUTO_SYNC_KEY = booleanPreferencesKey("auto_sync")
     }
 
     override val userSettingsStateFlow: Flow<UserSettingsState> = dataStore.data
@@ -56,7 +58,8 @@ class UserSettingsManager(
                 spellcheckLanguage = preferences[SPELLCHECK_LANGUAGE_KEY]?.let { name ->
                     AppLanguage.entries.find { it.name == name }
                 },
-                editorFullWidth = preferences[EDITOR_FULL_WIDTH_KEY] ?: false
+                editorFullWidth = preferences[EDITOR_FULL_WIDTH_KEY] ?: false,
+                autoSync = preferences[AUTO_SYNC_KEY] ?: true,
             )
         }
 
@@ -112,6 +115,12 @@ class UserSettingsManager(
        }
     }
 
+    override suspend fun setAutoSync(autoSync: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[AUTO_SYNC_KEY] = autoSync
+        }
+    }
+
     suspend fun clearSettings() {
         dataStore.edit { preferences ->
             preferences.remove(THEME_MODE_KEY)
@@ -121,6 +130,7 @@ class UserSettingsManager(
             preferences.remove(CONFLICT_STRATEGY_KEY)
             preferences.remove(SPELLCHECK_LANGUAGE_KEY)
             preferences.remove(EDITOR_FULL_WIDTH_KEY)
+            preferences.remove(AUTO_SYNC_KEY)
             preferences.remove(USE_DYNAMIC_COLOR_KEY)
         }
     }

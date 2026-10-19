@@ -1,5 +1,6 @@
 package dev.jotalac.feature.editor.ui
 
+import dev.jotalac.core.data.UserSettingsState
 import dev.jotalac.core.utils.RemoteStatus
 import dev.jotalac.core.utils.RemoteStatusMonitor
 import dev.jotalac.core.utils.SnackbarManager
@@ -36,7 +37,8 @@ class EditorScreenViewModelTest {
     private val editor = FakeEditorRepository()
     private val notebooks = FakeNotebookRepository()
     private val snackbar = SnackbarManager()
-    private val settings = FakeUserSettings()
+    // auto sync has its own tests - here its endless loop would keep advanceUntilIdle() from ever finishing
+    private val settings = FakeUserSettings(UserSettingsState(autoSync = false))
     private val gitSync = FakeGitSyncRepository()
     // no network, so no request is ever made
     private val remoteStatus = RemoteStatusMonitor({ false }, { flowOf(false) })

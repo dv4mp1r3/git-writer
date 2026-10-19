@@ -37,6 +37,7 @@ class UserSettingsManagerTest {
         settings.setUseDynamicColor(true)
         settings.setSpellcheckLanguage(AppLanguage.CZECH)
         settings.setEditorFullWidth(true)
+        settings.setAutoSync(true)
 
         assertEquals(
             UserSettingsState(
@@ -48,6 +49,7 @@ class UserSettingsManagerTest {
                 useDynamicColor = true,
                 spellcheckLanguage = AppLanguage.CZECH,
                 editorFullWidth = true,
+                autoSync = true,
             ),
             current(),
         )

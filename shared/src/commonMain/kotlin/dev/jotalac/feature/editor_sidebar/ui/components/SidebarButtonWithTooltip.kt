@@ -6,9 +6,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import dev.jotalac.core.ui.components.DelayedTooltip
 import dev.jotalac.core.ui.theme.dimensions
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
+import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
 fun SidebarButtonWithTooltip(
@@ -18,15 +20,9 @@ fun SidebarButtonWithTooltip(
     tint: Color = MaterialTheme.colorScheme.onSecondaryContainer,
     enabled: Boolean = true,
 ) {
-    TooltipBox(
-        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(
-            TooltipAnchorPosition.Above,
-            10.dp
-        ),
-        tooltip = {
-            PlainTooltip { Text(contentDescription) }
-        },
-        state = rememberTooltipState()
+    DelayedTooltip(
+        text = contentDescription,
+        delayTime = 500.milliseconds
     ) {
         IconButton(
             onClick = onClick,
