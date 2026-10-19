@@ -1,5 +1,7 @@
 package dev.jotalac.feature.editor.ui
 
+import dev.jotalac.core.utils.RemoteStatus
+import dev.jotalac.core.utils.RemoteStatusMonitor
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.jotalac.core.data.UserSettings
@@ -30,10 +32,17 @@ class EditorViewModel(
     private val snackbarManager: SnackbarManager,
     private val userSettingsManager: UserSettings,
     gitSyncRepository: GitSyncRepository,
+    private val remoteStatusMonitor: RemoteStatusMonitor,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(EditorScreenState())
     val uiState: StateFlow<EditorScreenState> = _uiState.asStateFlow()
+
+
+    // shares the remote status, only when the app is in the foreground -> EditorScreen subscribes this flow
+    val remoteStatus: StateFlow<RemoteStatus?> = remoteStatusMonitor
+        .status(notebookRepository.activeNotebookState.map { it?.remoteUrl })
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     private val blocksState = EditorBlocksState()
     val markdownBlocks = blocksState.blocks
@@ -315,6 +324,7 @@ class EditorViewModel(
             )
 
             is EditorAction.SyncNotes -> viewModelScope.launch { syncController.sync() }
+            is EditorAction.CheckRemoteStatus -> remoteStatusMonitor.checkNow()
             is EditorAction.ResolveSingleConflict -> viewModelScope.launch {
                 syncController.resolveSingleConflict(action.filePath, action.keepLocalChanges)
             }

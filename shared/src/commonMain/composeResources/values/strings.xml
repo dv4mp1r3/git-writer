@@ -79,6 +79,8 @@
     <string name="sync_status_failed">Sync failed. Tap to retry.</string>
     <string name="sync_status_conflict">Merge conflicts detected. Tap to resolve.</string>
     <string name="sync_status_not_configured">Git sync is not configured.</string>
+    <string name="sync_status_offline">Offline - no network connection</string>
+    <string name="sync_status_remote_unreachable">Remote repository cannot be reached</string>
     <string name="undo_button">Undo</string>
     <string name="redo_button">Redo</string>
     <string name="settings_title">Settings</string>

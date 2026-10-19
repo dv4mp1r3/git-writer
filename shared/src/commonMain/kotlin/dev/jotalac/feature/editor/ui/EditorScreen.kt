@@ -1,5 +1,7 @@
 package dev.jotalac.feature.editor.ui
 
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -51,6 +53,15 @@ fun EditorScreen(
     WindowTitle(state.activeFilename)
 
     val rootFocusRequester = remember { FocusRequester() }
+
+    // only collected while the editor is visible - in the background the remote is not checked at all
+    val remoteStatus by viewModel.remoteStatus.collectAsStateWithLifecycle()
+
+    // the network may have changed while the app was in the background (or the window unfocused on desktop)
+    LifecycleResumeEffect(viewModel) {
+        viewModel.onAction(EditorAction.CheckRemoteStatus)
+        onPauseOrDispose { }
+    }
 
     // when there is no note open - focus the root
     LaunchedEffect(state.activeNotePath, state.isImage) {
@@ -139,7 +150,7 @@ fun EditorScreen(
                     isImage = state.isImage,
                     isLoading = state.isLoading,
                     onAction = viewModel::onAction,
-                    gitSyncStatus = state.gitSyncStatus,
+                    gitSyncStatus = state.syncButtonStatus(remoteStatus),
                     openSettingsOnMobile = openSettingsOnMobile,
                     uiState = editorUiState,
                     onTabClick = viewModel::openTab,
@@ -155,7 +166,7 @@ fun EditorScreen(
                     isImage = state.isImage,
                     isLoading = state.isLoading,
                     onAction = viewModel::onAction,
-                    gitSyncStatus = state.gitSyncStatus,
+                    gitSyncStatus = state.syncButtonStatus(remoteStatus),
                     openSettingsOnMobile = openSettingsOnMobile,
                     uiState = editorUiState,
                     onTabClick = viewModel::openTab,

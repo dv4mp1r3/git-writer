@@ -79,6 +79,8 @@
     <string name="sync_status_failed">Synchronizace se nezdařila. Klepnutím zkuste znovu.</string>
     <string name="sync_status_conflict">Zjištěny konflikty při sloučení. Klepnutím vyřešte.</string>
     <string name="sync_status_not_configured">Synchronizace Git není nakonfigurována.</string>
+    <string name="sync_status_offline">Offline - bez připojení k síti</string>
+    <string name="sync_status_remote_unreachable">Vzdálený repozitář není dostupný</string>
     <string name="undo_button">Zpět</string>
     <string name="redo_button">Znovu</string>
     <string name="settings_title">Nastavení</string>

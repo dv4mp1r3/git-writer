@@ -9,6 +9,8 @@ import dev.jotalac.core.database.getDatabaseBuilder
 import dev.jotalac.feature.notebooks_management.domain.IosNotebookPathProvider
 import dev.jotalac.feature.notebooks_management.domain.NotebookPathProvider
 import kotlinx.cinterop.ExperimentalForeignApi
+import dev.jotalac.core.utils.NetworkMonitor
+import dev.jotalac.core.utils.DeviceNetworkMonitor
 import org.koin.core.module.Module
 import org.koin.dsl.module
 import platform.Foundation.NSDocumentDirectory
@@ -22,6 +24,8 @@ import dev.jotalac.feature.git_sync.domain.GitSyncRepository
 
 @OptIn(ExperimentalForeignApi::class)
 actual val platformModule: Module = module {
+    single<NetworkMonitor> { DeviceNetworkMonitor() }
+
     single<NotebookPathProvider> { IosNotebookPathProvider() }
 
     single<RoomDatabase.Builder<AppDatabase>> {

@@ -1,5 +1,7 @@
 package dev.jotalac.core.di
 
+import io.ktor.client.HttpClientConfig
+import io.ktor.client.engine.HttpClientEngine
 import org.koin.core.annotation.KoinExperimentalAPI
 import org.koin.dsl.module
 import org.koin.test.verify.verify
@@ -12,6 +14,10 @@ class AppModulesTest {
     @OptIn(KoinExperimentalAPI::class)
     @Test
     fun `every dependency of the desktop app can be created`() {
-        module { includes(appModules) }.verify()
+        module { includes(appModules) }.verify(
+            // single { HttpClient() } uses Ktor's factory function, which finds the platform's engine itself -
+            // verify only sees the constructor of the HttpClient class, that takes these two
+            extraTypes = listOf(HttpClientEngine::class, HttpClientConfig::class),
+        )
     }
 }

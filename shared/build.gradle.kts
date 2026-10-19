@@ -104,6 +104,7 @@ kotlin {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.ktor.client.okhttp)
             implementation(libs.jgit.v5)
+            implementation(libs.connectivity.device)
         }
         jvmMain.dependencies {
             implementation(libs.ktor.client.okhttp)
@@ -112,6 +113,7 @@ kotlin {
         }
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)
+            implementation(libs.connectivity.device)
         }
         commonMain.dependencies {
             implementation(libs.compose.runtime)
@@ -150,6 +152,8 @@ kotlin {
             implementation(libs.latex.base) // Basic logging
             implementation(libs.latex.renderer) // Rendering logic
             implementation(libs.latex.parser) // Parsing logic
+
+            implementation(libs.connectivity.core)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)

@@ -26,6 +26,8 @@ sealed interface EditorAction {
     ) : EditorAction
 
     data object SyncNotes : EditorAction
+    // e.g. the app came back to the foreground - the network may have changed meanwhile
+    data object CheckRemoteStatus : EditorAction
     data class ResolveSingleConflict(val filePath: String, val keepLocalChanges: Boolean) : EditorAction
     data class ResolveAllConflicts(val keepLocalChanges: Boolean) : EditorAction
     data object AbortConflictResolve : EditorAction

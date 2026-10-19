@@ -31,7 +31,10 @@ fun SyncFloatingButton(
     modifier: Modifier = Modifier,
 ) {
     val isSyncing = gitSyncStatus is GitSyncStatus.Syncing
-    val isEnabled = gitSyncStatus !is GitSyncStatus.Syncing && gitSyncStatus !is GitSyncStatus.GitSyncNotConfigured
+    // unreachable stays enabled - the check can be wrong, and a sync is the way to retry (offline is only in mobile - that is reliable)
+    val isEnabled = gitSyncStatus !is GitSyncStatus.Syncing &&
+        gitSyncStatus !is GitSyncStatus.GitSyncNotConfigured &&
+        gitSyncStatus !is GitSyncStatus.Offline
 
     val infiniteTransition = rememberInfiniteTransition(label = "sync_rotation")
     val rotationAngle by if (isSyncing) {
@@ -54,6 +57,8 @@ fun SyncFloatingButton(
         is GitSyncStatus.GitSyncFailed -> MaterialTheme.colorScheme.errorContainer
         is GitSyncStatus.Conflict -> MaterialTheme.colorScheme.error
         is GitSyncStatus.GitSyncNotConfigured -> MaterialTheme.colorScheme.surfaceContainerHigh
+        is GitSyncStatus.Offline -> MaterialTheme.colorScheme.surfaceContainerHigh
+        is GitSyncStatus.RemoteUnreachable -> MaterialTheme.colorScheme.tertiaryContainer
     }
 
     val targetContentColor = when (gitSyncStatus) {
@@ -62,6 +67,8 @@ fun SyncFloatingButton(
         is GitSyncStatus.GitSyncFailed -> MaterialTheme.colorScheme.onErrorContainer
         is GitSyncStatus.Conflict -> MaterialTheme.colorScheme.onError
         is GitSyncStatus.GitSyncNotConfigured -> MaterialTheme.colorScheme.outline
+        is GitSyncStatus.Offline -> MaterialTheme.colorScheme.outline
+        is GitSyncStatus.RemoteUnreachable -> MaterialTheme.colorScheme.onTertiaryContainer
     }
 
     val targetShadowColor = when (gitSyncStatus) {
@@ -70,6 +77,8 @@ fun SyncFloatingButton(
         is GitSyncStatus.GitSyncFailed -> MaterialTheme.colorScheme.error.copy(alpha = 0.05f)
         is GitSyncStatus.Conflict -> MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
         is GitSyncStatus.GitSyncNotConfigured -> Color.Transparent
+        is GitSyncStatus.Offline -> Color.Transparent
+        is GitSyncStatus.RemoteUnreachable -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.1f)
     }
 
     val animatedContainerColor by animateColorAsState(
@@ -118,6 +127,8 @@ private fun getIcon(gitSyncStatus: GitSyncStatus): DrawableResource = when (gitS
     is GitSyncStatus.GitSyncFailed -> Res.drawable.sync_error
     is GitSyncStatus.Conflict -> Res.drawable.git_merge_conflict
     is GitSyncStatus.GitSyncNotConfigured -> Res.drawable.sync_lock
+    is GitSyncStatus.Offline -> Res.drawable.wifi_off
+    is GitSyncStatus.RemoteUnreachable -> Res.drawable.cloud_off
 }
 
 private fun getContentDescription(gitSyncStatus: GitSyncStatus): StringResource = when (gitSyncStatus) {
@@ -126,6 +137,8 @@ private fun getContentDescription(gitSyncStatus: GitSyncStatus): StringResource 
     is GitSyncStatus.GitSyncFailed -> Res.string.sync_status_failed
     is GitSyncStatus.Conflict -> Res.string.sync_status_conflict
     is GitSyncStatus.GitSyncNotConfigured -> Res.string.sync_status_not_configured
+    is GitSyncStatus.Offline -> Res.string.sync_status_offline
+    is GitSyncStatus.RemoteUnreachable -> Res.string.sync_status_remote_unreachable
 }
 
 @Preview

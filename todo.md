@@ -2,6 +2,9 @@
 
 > high priority
 
+- schedule sync, turn on in settings that the sync will happend eg. every 10 minutes and on notebook open
+- check for network connection, when there is no connection, disable the sync button
+
 > medium priority
 
 - add note linking
@@ -21,7 +24,6 @@
 - made custom top app bar - it looks horrible on Windows at least
 - in the settings as possibility to change the commit message
 - add nucleus fs-watcher (or other fs watcher)
-- schedule sync, turn on in settings that the sync will happend eg. every 10 minutes
 - add encryption possibility, this looks nice but probably wont work with iOS devices (<https://github.com/cryptomator/cryptofs>)
 
 > other ideas - lower priority
@@ -36,5 +38,4 @@
   for new file)
 - better messages while syncing (eg. when nothing is commited or pulled - display up to date message)
 - make username and password optional for cloning when cloning public repo – then the sync would be disabled?
-- check for network connection, when there is no connection, disable the sync button
 - add some overview of the opened note, it will show the headers, and you can jump to the specified header

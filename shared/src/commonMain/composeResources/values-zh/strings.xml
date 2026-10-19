@@ -79,6 +79,8 @@
     <string name="sync_status_failed">同步失败。点按以重试。</string>
     <string name="sync_status_conflict">检测到合并冲突。点按以解决。</string>
     <string name="sync_status_not_configured">未配置 Git 同步。</string>
+    <string name="sync_status_offline">离线 - 无网络连接</string>
+    <string name="sync_status_remote_unreachable">无法访问远程仓库</string>
     <string name="undo_button">撤销</string>
     <string name="redo_button">重做</string>
     <string name="settings_title">设置</string>
