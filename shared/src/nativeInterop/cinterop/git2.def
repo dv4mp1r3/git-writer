@@ -1,0 +1,16 @@
+# Kotlin bindings for libgit2, used by the iOS git sync (feature/git_sync/data/libgit2).
+# libgit2 is built by tools/build-libgit2.sh, once per iOS target - shared/build.gradle.kts points cinterop
+# at the headers and the library of the target being built.
+
+headers = git2.h
+headerFilter = git2.h git2/*.h
+package = git2
+
+# the deprecated API stays out of the bindings
+compilerOpts = -DGIT_DEPRECATE_HARD
+
+# embedded into the klib - the iOS framework is static, so the library has to travel inside it
+staticLibraries = libgit2.a
+
+# libgit2 is built with SecureTransport for https and a bundled zlib, these are all it needs from the system
+linkerOpts = -framework Security -framework CoreFoundation
