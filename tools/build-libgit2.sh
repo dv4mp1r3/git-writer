@@ -1,5 +1,14 @@
 #!/usr/bin/env bash
 #
+# Builds libgit2 as a static library for the iOS targets of the shared module, a folder per Kotlin target:
+#
+#   third_party/libgit2/slices/<target>/include/   the headers cinterop binds
+#   third_party/libgit2/slices/<target>/lib/libgit2.a
+#
+# shared/build.gradle.kts and shared/src/nativeInterop/cinterop/git2.def take it from there. The output is
+# not in git: run this once on a new machine, and again after changing the version.
+#
+# Usage: tools/build-libgit2.sh [--clean]      (needs Xcode, and: brew install cmake ninja)
 
 set -euo pipefail
 
@@ -7,80 +16,57 @@ LIBGIT2_VERSION="${LIBGIT2_VERSION:-1.9.7}"
 IOS_DEPLOYMENT_TARGET="${IOS_DEPLOYMENT_TARGET:-13.0}"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SRC="$ROOT/build/libgit2-src"
-BUILDS="$ROOT/build"
-OUT="$ROOT/third_party/libgit2/slices"
+SOURCE="$ROOT/build/libgit2-src"
+OUTPUT="$ROOT/third_party/libgit2/slices"
 
-log()  { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
-die()  { printf '\033[1;31merror:\033[0m %s\n' "$*" >&2; exit 1; }
-
-# --------------------------------------------------------------------------
-# 0. Optional clean
-if [[ "${1:-}" == "--clean" ]]; then
-  log "Cleaning $BUILDS/libgit2-* and $OUT"
-  rm -rf "$BUILDS"/libgit2-* "$OUT"
-fi
-
-# --------------------------------------------------------------------------
-# 1. Xcode
-if [[ -z "${DEVELOPER_DIR:-}" ]]; then
-  if [[ -d /Applications/Xcode.app/Contents/Developer ]]; then
-    export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
-  else
-    die "No full Xcode at /Applications/Xcode.app. Install it, or set DEVELOPER_DIR."
-  fi
-fi
-log "DEVELOPER_DIR=$DEVELOPER_DIR"
-
-for tool in cmake ninja git; do
-  command -v "$tool" >/dev/null 2>&1 || die "$tool not found on PATH."
-done
-log "CMake $(cmake --version | head -1 | awk '{print $3}'), Ninja $(ninja --version)"
-log "iPhoneOS SDK $(xcrun --sdk iphoneos --show-sdk-version 2>/dev/null || echo '?'), iPhoneSimulator SDK $(xcrun --sdk iphonesimulator --show-sdk-version 2>/dev/null || echo '?')"
-
-# --------------------------------------------------------------------------
-# 2. Pinned source (cloned automatically on a fresh machine)
-mkdir -p "$BUILDS"
-
-if [[ ! -d "$SRC/.git" ]]; then
-  log "Cloning libgit2 v$LIBGIT2_VERSION"
-  git clone --depth 1 --branch "v$LIBGIT2_VERSION" \
-    https://github.com/libgit2/libgit2.git "$SRC" \
-    || die "Failed to clone libgit2 v$LIBGIT2_VERSION"
-fi
-
-got="$(grep -m1 'LIBGIT2_VERSION ' "$SRC/include/git2/version.h" | sed -E 's/.*"([^"]+)".*/\1/')"
-[[ "$got" == "$LIBGIT2_VERSION" ]] \
-  || die "Source is libgit2 $got but $LIBGIT2_VERSION was requested. Re-run with --clean."
-log "Using libgit2 $got at $(git -C "$SRC" rev-parse --short HEAD)"
-
-# --------------------------------------------------------------------------
-# 3. Build one slice per SDK
-SLICES=(
+# Kotlin target | Xcode SDK | architecture
+TARGETS=(
   "iosArm64|iphoneos|arm64"
   "iosSimulatorArm64|iphonesimulator|arm64"
 )
 
-build_slice() {
-  local name="$1" sysroot="$2" arch="$3"
-  local bdir="$BUILDS/libgit2-$name"
-  local prefix="$OUT/$name"
+log() { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
+die() { printf '\033[1;31merror:\033[0m %s\n' "$*" >&2; exit 1; }
 
-  log "Configuring $name (sysroot=$sysroot arch=$arch)"
+check_tools() {
+  export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
+  [[ -d "$DEVELOPER_DIR" ]] || die "no Xcode at $DEVELOPER_DIR - install it, or point DEVELOPER_DIR at it"
+  for tool in cmake ninja git; do
+    command -v "$tool" >/dev/null || die "$tool not found - brew install $tool"
+  done
+}
 
-  # A fresh build dir per slice is REQUIRED: CMake caches find_package /
-  # find_library results per configure-time SDK, so reusing one directory
-  rm -rf "$bdir"
+download_source() {
+  if [[ ! -d "$SOURCE/.git" ]]; then
+    log "Downloading libgit2 $LIBGIT2_VERSION"
+    git clone --quiet --depth 1 --branch "v$LIBGIT2_VERSION" https://github.com/libgit2/libgit2.git "$SOURCE"
+  fi
 
-  # SYSTEM_NAME=iOS is required or CMake skips the iOS workarounds. SHA1 has no
-  # "builtin". SONAME must stay unset or the archive loses the libgit2.a name.
-  cmake -S "$SRC" -B "$bdir" -G Ninja \
+  local version
+  version="$(sed -nE 's/^#define LIBGIT2_VERSION[[:space:]]+"(.*)"/\1/p' "$SOURCE/include/git2/version.h")"
+  [[ "$version" == "$LIBGIT2_VERSION" ]] || die "$SOURCE is libgit2 $version, not $LIBGIT2_VERSION - run with --clean"
+}
+
+build() {
+  local target="$1" sdk="$2" arch="$3"
+  local build_dir="$ROOT/build/libgit2-$target"
+  log "Building $target ($sdk, $arch)"
+
+  # a new build folder each time: CMake caches what it found in the SDK it was first configured with
+  rm -rf "$build_dir"
+
+  # - CMAKE_SYSTEM_NAME=iOS turns on libgit2's iOS handling
+  # - https goes through Apple's SecureTransport and zlib is bundled, so it only needs system frameworks
+  # - no SSH, the app syncs over https; SHA1 has no "builtin" option, CollisionDetection is libgit2's own
+  # - SHA256 object ids stay off: they change the size of git_oid
+  # - CMAKE_POLICY_VERSION_MINIMUM lets CMake 4 configure libgit2's older CMakeLists
+  cmake -S "$SOURCE" -B "$build_dir" -G Ninja \
     -DCMAKE_SYSTEM_NAME=iOS \
-    -DCMAKE_OSX_SYSROOT="$sysroot" \
+    -DCMAKE_OSX_SYSROOT="$sdk" \
     -DCMAKE_OSX_ARCHITECTURES="$arch" \
     -DCMAKE_OSX_DEPLOYMENT_TARGET="$IOS_DEPLOYMENT_TARGET" \
     -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_INSTALL_PREFIX="$prefix" \
+    -DCMAKE_INSTALL_PREFIX="$OUTPUT/$target" \
     -DCMAKE_MAKE_PROGRAM="$(command -v ninja)" \
     -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
     -DBUILD_SHARED_LIBS=OFF \
@@ -97,93 +83,43 @@ build_slice() {
     -DEXPERIMENTAL_SHA256=OFF \
     -DDEPRECATE_HARD=OFF
 
-  log "Building + installing $name"
-  cmake --build "$bdir" --target install --parallel
+  cmake --build "$build_dir" --target install --parallel
 }
 
-for s in "${SLICES[@]}"; do
-  IFS='|' read -r name sysroot arch <<< "$s"
-  build_slice "$name" "$sysroot" "$arch"
+# fails loudly here rather than later with a binding that does not link
+verify() {
+  local target="$1" arch="$3"
+  local library="$OUTPUT/$target/lib/libgit2.a"
+
+  [[ -f "$library" ]] || die "$target: $library was not built"
+  [[ "$(lipo -archs "$library")" == "$arch" ]] || die "$target: $library is not built for $arch"
+  if grep -qE '^#define GIT_EXPERIMENTAL_SHA256 1' "$OUTPUT/$target/include/git2/experimental.h"; then
+    die "$target: built with SHA256 object ids"
+  fi
+
+  # nm sometimes prints nothing at all in a fresh toolchain - only an output without the symbol is an error
+  local symbols
+  symbols="$(nm -gU "$library" 2>/dev/null || true)"
+  if [[ -n "$symbols" ]] && ! grep -q ' _git_clone$' <<< "$symbols"; then
+    die "$target: $library does not contain libgit2"
+  fi
+
+  log "$target: $library ($(du -h "$library" | cut -f1))"
+}
+
+if [[ "${1:-}" == "--clean" ]]; then
+  log "Removing the previous build"
+  rm -rf "$ROOT"/build/libgit2-* "$OUTPUT"
+fi
+
+check_tools
+download_source
+for entry in "${TARGETS[@]}"; do
+  IFS='|' read -r target sdk arch <<< "$entry"
+  build "$target" "$sdk" "$arch"
 done
-
-# --------------------------------------------------------------------------
-# 4. Verify -- fail loudly rather than produce a silently broken binding
-log "Verifying slices"
-
-# True if the archive exports the given C symbol.
-#
-has_symbol() {
-  local n
-  n="$(nm -gU "$1" 2>/dev/null | grep -c "_$2\$" || true)"
-  [[ "${n:-0}" -gt 0 ]]
-}
-
-# True if nm produced any usable output at all, which distinguishes a transient
-# toolchain failure from a genuinely missing symbol.
-has_symbol_any() {
-  local n
-  n="$(nm -gU "$1" 2>/dev/null | grep -c ' T _git_' || true)"
-  [[ "${n:-0}" -gt 0 ]]
-}
-
-for s in "${SLICES[@]}"; do
-  IFS='|' read -r name sysroot arch <<< "$s"
-  local_prefix="$OUT/$name"
-
-  archive="$(ls "$local_prefix/lib/"libgit*.a 2>/dev/null | head -1 || true)"
-  [[ -n "$archive" && -f "$archive" ]] \
-    || die "$name: no libgit*.a found in $local_prefix/lib"
-
-  header="$local_prefix/include/git2/experimental.h"
-  [[ -f "$header" ]] \
-    || die "$name: $header missing (includeDirs must point at the installed include/ tree)"
-
-  # ABI guard: git_oid is 20 bytes only while GIT_EXPERIMENTAL_SHA256 is
-  # undefined. If it is set, cinterop's view of the header disagrees with the
-  if grep -qE '^#define[[:space:]]+GIT_EXPERIMENTAL_SHA256[[:space:]]+1' "$header"; then
-    die "$name: built with GIT_EXPERIMENTAL_SHA256=1 (33-byte git_oid). Rebuild with -DEXPERIMENTAL_SHA256=OFF."
-  fi
-
-  slice_arch="$(lipo -archs "$archive" 2>/dev/null || echo unknown)"
-  case " $slice_arch " in
-    *" $arch "*) : ;;
-    *) die "$name: expected arch $arch, got '$slice_arch'" ;;
-  esac
-
-  # Primary check: the archive must actually contain libgit2 objects. This is
-  # what guarantees the linker will find symbols, and `ar` is not affected by
-  objects="$(ar t "$archive" 2>/dev/null | wc -l | tr -d ' ')"
-  [[ "${objects:-0}" -gt 50 ]] \
-    || die "$name: archive contains only ${objects:-0} objects"
-
-  # Secondary check: confirm the symbols this binding actually needs. Advisory
-  # only -- if `nm` produces nothing and no detected symbol is reported missing,
-  nm_failed=0
-  if ! has_symbol "$archive" git_clone; then
-    nm_failed=1
-  elif ! has_symbol "$archive" git_merge; then
-    nm_failed=1
-  elif ! has_symbol "$archive" git_credential_userpass_plaintext_new; then
-    nm_failed=1
-  fi
-
-  if [[ "$nm_failed" -eq 1 ]]; then
-    # Distinguish "nm produced nothing at all" (transient toolchain failure)
-    # from "nm worked but the symbol is genuinely absent".
-    if has_symbol_any "$archive"; then
-      die "$name: archive is missing a required symbol (git_clone / git_merge / credential helper)"
-    fi
-    printf '    %s: note -- nm produced no usable output (transient toolchain cache failure).\n' "$name"
-    printf '    %s: relying on the object-count check only.\n' "$name"
-  fi
-
-  printf '    %-22s arch=%-6s size=%-6s objects=%-5s %s\n' \
-    "$name" "$slice_arch" "$(du -h "$archive" | cut -f1)" "$objects" "$(basename "$archive")"
+for entry in "${TARGETS[@]}"; do
+  IFS='|' read -r target sdk arch <<< "$entry"
+  verify "$target" "$sdk" "$arch"
 done
-
-cat <<EOF
-
-$(log "Done. Static libgit2 $LIBGIT2_VERSION slices ready at $OUT")
-
-Reminder: third_party/libgit2/slices/ is build output. Keep it out of git.
-EOF
+log "libgit2 $LIBGIT2_VERSION is ready in $OUTPUT"

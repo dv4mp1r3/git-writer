@@ -37,7 +37,7 @@ class EditorAutoSyncTest {
     private val settings = FakeUserSettings(UserSettingsState(autoSync = true))
     private val gitSync = FakeGitSyncRepository().apply { syncResult = Result.success(GitSyncStatus.UpToDate) }
 
-    private val withRemote = Notebook(1, "notes", "/notes", "https://github.com/me/notes.git", "me", "token")
+    private val notebbokoWithRemote = Notebook(1, "notes", "/notes", "https://github.com/me/notes.git", "me", "token")
 
     private fun autoSyncTest(block: suspend TestScope.(EditorViewModel) -> Unit) = viewModelTest {
         val viewModel = EditorViewModel(
@@ -60,7 +60,7 @@ class EditorAutoSyncTest {
 
     @Test
     fun `a notebook with a remote is synced right when it is opened`() = autoSyncTest {
-        notebooks.activeNotebook.value = withRemote
+        notebooks.activeNotebook.value = notebbokoWithRemote
 
         // no waiting - nobody is typing
         runCurrent()
@@ -70,7 +70,7 @@ class EditorAutoSyncTest {
 
     @Test
     fun `it syncs again every 10 minutes`() = autoSyncTest {
-        notebooks.activeNotebook.value = withRemote
+        notebooks.activeNotebook.value = notebbokoWithRemote
         wait(4.seconds)
 
         wait(10.minutes + 4.seconds)
@@ -82,7 +82,7 @@ class EditorAutoSyncTest {
     @Test
     fun `nothing is synced with auto sync off`() = autoSyncTest {
         settings.settings.value = UserSettingsState(autoSync = false)
-        notebooks.activeNotebook.value = withRemote
+        notebooks.activeNotebook.value = notebbokoWithRemote
 
         wait(30.minutes)
 
@@ -91,7 +91,7 @@ class EditorAutoSyncTest {
 
     @Test
     fun `a notebook without a remote is not synced`() = autoSyncTest {
-        notebooks.activeNotebook.value = withRemote.copy(remoteUrl = null, remotePassword = null)
+        notebooks.activeNotebook.value = notebbokoWithRemote.copy(remoteUrl = null, remotePassword = null)
 
         wait(30.minutes)
 
@@ -100,7 +100,7 @@ class EditorAutoSyncTest {
 
     @Test
     fun `turning auto sync off stops the periodic sync`() = autoSyncTest {
-        notebooks.activeNotebook.value = withRemote
+        notebooks.activeNotebook.value = notebbokoWithRemote
         wait(4.seconds)
 
         settings.settings.value = UserSettingsState(autoSync = false)
@@ -111,10 +111,10 @@ class EditorAutoSyncTest {
 
     @Test
     fun `opening another notebook syncs it right away`() = autoSyncTest {
-        notebooks.activeNotebook.value = withRemote
+        notebooks.activeNotebook.value = notebbokoWithRemote
         wait(4.seconds)
 
-        notebooks.activeNotebook.value = withRemote.copy(id = 2, directoryPath = "/work")
+        notebooks.activeNotebook.value = notebbokoWithRemote.copy(id = 2, directoryPath = "/work")
         runCurrent()
 
         assertEquals(listOf("/notes", "/work"), gitSync.syncedPaths)
@@ -122,7 +122,7 @@ class EditorAutoSyncTest {
 
     @Test
     fun `typing postpones the automatic sync until it pauses`() = autoSyncTest { viewModel ->
-        notebooks.activeNotebook.value = withRemote
+        notebooks.activeNotebook.value = notebbokoWithRemote
         runCurrent()
 
         // typing (an edit every second) just as the next sync is due
@@ -140,7 +140,7 @@ class EditorAutoSyncTest {
 
     @Test
     fun `leaving the app syncs once more`() = autoSyncTest { viewModel ->
-        notebooks.activeNotebook.value = withRemote
+        notebooks.activeNotebook.value = notebbokoWithRemote
         wait(4.seconds)
 
         viewModel.onAction(EditorAction.SyncBeforeLeaving)
@@ -152,7 +152,7 @@ class EditorAutoSyncTest {
     @Test
     fun `leaving the app does not sync with auto sync off`() = autoSyncTest { viewModel ->
         settings.settings.value = UserSettingsState(autoSync = false)
-        notebooks.activeNotebook.value = withRemote
+        notebooks.activeNotebook.value = notebbokoWithRemote
         runCurrent()
 
         viewModel.onAction(EditorAction.SyncBeforeLeaving)
@@ -163,7 +163,7 @@ class EditorAutoSyncTest {
 
     @Test
     fun `the open note is reloaded after a sync only when the pull changed it`() = autoSyncTest {
-        notebooks.activeNotebook.value = withRemote
+        notebooks.activeNotebook.value = notebbokoWithRemote
         notebooks.activeNote.value = "/notes/note.md"
         editor.existingPaths += "/notes/note.md"
         editor.blocksResult = Result.success(listOf("# Note", "text"))
