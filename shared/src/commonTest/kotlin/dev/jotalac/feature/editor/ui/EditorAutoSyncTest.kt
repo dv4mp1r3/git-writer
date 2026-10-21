@@ -13,7 +13,7 @@ import dev.jotalac.testing.fakes.FakeUserSettings
 import dev.jotalac.testing.viewModelTest
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -36,13 +36,15 @@ class EditorAutoSyncTest {
     private val notebooks = FakeNotebookRepository()
     private val settings = FakeUserSettings(UserSettingsState(autoSync = true))
     private val gitSync = FakeGitSyncRepository().apply { syncResult = Result.success(GitSyncStatus.UpToDate) }
+    // what the OS reports about the connection - the remote itself always answers
+    private val network = MutableStateFlow<Boolean?>(true)
 
     private val notebbokoWithRemote = Notebook(1, "notes", "/notes", "https://github.com/me/notes.git", "me", "token")
 
     private fun autoSyncTest(block: suspend TestScope.(EditorViewModel) -> Unit) = viewModelTest {
         val viewModel = EditorViewModel(
             notebooks, editor, SnackbarManager(), settings, gitSync,
-            RemoteStatusMonitor({ false }, { flowOf(false) }),
+            RemoteStatusMonitor({ true }, { network }),
         )
         try {
             block(viewModel)
@@ -110,6 +112,30 @@ class EditorAutoSyncTest {
     }
 
     @Test
+    fun `nothing is synced offline and it syncs right when the device is back online`() = autoSyncTest {
+        network.value = false
+        notebooks.activeNotebook.value = notebbokoWithRemote
+        wait(30.minutes)
+        assertTrue(gitSync.syncedPaths.isEmpty())
+
+        network.value = true
+        runCurrent()
+
+        assertEquals(listOf("/notes"), gitSync.syncedPaths)
+    }
+
+    @Test
+    fun `going offline stops the periodic sync`() = autoSyncTest {
+        notebooks.activeNotebook.value = notebbokoWithRemote
+        runCurrent()
+
+        network.value = false
+        wait(30.minutes)
+
+        assertEquals(1, gitSync.syncedPaths.size)
+    }
+
+    @Test
     fun `opening another notebook syncs it right away`() = autoSyncTest {
         notebooks.activeNotebook.value = notebbokoWithRemote
         wait(4.seconds)
@@ -152,6 +178,18 @@ class EditorAutoSyncTest {
     @Test
     fun `leaving the app does not sync with auto sync off`() = autoSyncTest { viewModel ->
         settings.settings.value = UserSettingsState(autoSync = false)
+        notebooks.activeNotebook.value = notebbokoWithRemote
+        runCurrent()
+
+        viewModel.onAction(EditorAction.SyncBeforeLeaving)
+        runCurrent()
+
+        assertTrue(gitSync.syncedPaths.isEmpty())
+    }
+
+    @Test
+    fun `leaving the app offline does not sync`() = autoSyncTest { viewModel ->
+        network.value = false
         notebooks.activeNotebook.value = notebbokoWithRemote
         runCurrent()
 

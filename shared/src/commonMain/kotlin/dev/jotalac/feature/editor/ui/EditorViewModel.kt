@@ -13,6 +13,7 @@ import dev.jotalac.feature.editor.domain.EditorRepository
 import dev.jotalac.feature.editor.domain.EditorTabItem
 import dev.jotalac.feature.git_sync.domain.GitSyncRepository
 import dev.jotalac.feature.notebooks_management.domain.NotebookRepository
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
@@ -121,10 +122,11 @@ class EditorViewModel(
             }
         }
 
-        // auto sync: when a notebook is opened (so also on app start), then every 10 minutes while it stays
-        // open. Another notebook restarts it, turning the setting off stops it
+        // auto sync: when a notebook is opened (so also on app start) and whenever the device comes back online,
+        // then every 10 minutes while it stays open and online. Another notebook restarts it, turning the
+        // setting off or going offline stops it
         viewModelScope.launch {
-            autoSyncNotebookId().collectLatest { notebookId ->
+            autoSyncTarget().collectLatest { notebookId ->
                 if (notebookId == null) return@collectLatest
                 while (true) {
                     awaitTypingPause()
@@ -144,6 +146,17 @@ class EditorViewModel(
         notebook?.takeIf { autoSync && !it.remoteUrl.isNullOrBlank() && !it.remotePassword.isNullOrBlank() }?.id
     }.distinctUntilChanged()
 
+    // the notebook to auto sync right now - also null while the device is offline
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private fun autoSyncTarget(): Flow<Long?> = autoSyncNotebookId()
+        .flatMapLatest { notebookId ->
+            // the connection is only watched while there is something to sync - otherwise the remote would be
+            // checked in the background even with auto sync off
+            if (notebookId == null) flowOf(null)
+            else remoteStatus.filterNotNull().map { status -> notebookId.takeIf { status != RemoteStatus.OFFLINE } }
+        }
+        .distinctUntilChanged()
+
     // pulled changes could replace the note in the middle of a sentence - an automatic sync waits until
     // the typing has paused (without any typing it starts right away)
     private suspend fun awaitTypingPause() {
@@ -161,9 +174,11 @@ class EditorViewModel(
 
     /**
      * The last sync before leaving: the app going to the background (on mobile possibly closed for good -
-     * best effort, the OS may stop it) or the desktop app exiting. Only with auto sync on.
+     * best effort, the OS may stop it) or the desktop app exiting. Only with auto sync on, and not offline -
+     * it could only fail there, while the closed desktop window waits for it.
      */
     suspend fun syncBeforeLeaving() {
+        if (remoteStatus.value == RemoteStatus.OFFLINE) return
         if (autoSyncNotebookId().first() != null) syncController.sync()
     }
 
