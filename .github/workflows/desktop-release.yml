@@ -6,7 +6,7 @@
 # the version that tag claims.
 #
 # Why a matrix: jpackage only produces installers for the OS it runs on - there is no cross compiling -
-# and macOS builds for its own architecture, so arm64 and x86_64 each need their own runner.
+# and it builds for the architecture of the runner, so arm64 and x86_64 each need their own runner.
 name: Desktop release
 
 on:
@@ -27,7 +27,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Fail before spending five runners on installers if the code does not even build and pass tests.
+  # Fail before spending four runners on installers if the code does not even build and pass tests.
   verify:
     runs-on: ubuntu-latest
     steps:
@@ -69,14 +69,15 @@ jobs:
           # Ubuntu refuses to install on older ones. The arm64 runner is free in public repos and
           # billed normally in private ones.
           #
-          # macOS needs one runner per architecture, pinned rather than macos-latest so a release is
-          # reproducible; see https://github.com/actions/runner-images for current labels.
+          # macOS is pinned rather than macos-latest so a release is reproducible; see
+          # https://github.com/actions/runner-images for current labels. There is no Intel macOS build:
+          # the SQLite driver of the database (androidx sqlite-bundled) ships no native library for Intel
+          # Macs, so that build installs but crashes when it opens the database.
           ALL: |
             [
               {"os": "ubuntu-22.04",     "label": "linux-x86_64"},
               {"os": "ubuntu-22.04-arm", "label": "linux-arm64"},
               {"os": "windows-latest",   "label": "windows-x86_64"},
-              {"os": "macos-26-intel",   "label": "macos-x86_64"},
               {"os": "macos-26",         "label": "macos-arm64"}
             ]
         run: |
@@ -112,9 +113,9 @@ jobs:
           ./gradlew :desktopApp:packageReleaseDistributionForCurrentOS
           -Papp.version.number=${{ needs.plan.outputs.version }}
 
-      # jpackage names the macOS images without the architecture, so the two Apple runners would
-      # produce the same GitWriter-<version>.dmg and overwrite each other in the release. Naming every
-      # file after its platform and architecture keeps them apart and makes the download obvious.
+      # jpackage leaves the architecture out of the macOS and Windows file names, and names the Linux
+      # packages its own way. Naming every file after its platform and architecture makes the download
+      # obvious, and keeps two builds for the same OS from overwriting each other in the release.
       - name: Name the files after their platform
         shell: bash
         run: |
@@ -165,7 +166,7 @@ jobs:
           else
             gh release create "v${VERSION}" \
               --draft \
-              --title "GitWriter ${VERSION}" \
+              --title "v${VERSION}" \
               --target "$GITHUB_SHA" \
               --notes "Desktop installers for ${VERSION}, built from ${GITHUB_SHA:0:7}. Attach the APK and the .ipa, write the notes, then publish." \
               "${files[@]}"

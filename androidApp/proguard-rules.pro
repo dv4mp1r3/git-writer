@@ -16,3 +16,5 @@
 -dontwarn org.ietf.jgss.GSSManager
 -dontwarn org.ietf.jgss.GSSName
 -dontwarn org.ietf.jgss.Oid
+keep class * extends androidx.work.InputMerger { public <init>(); }
+-keep public class * extends androidx.glance.appwidget.action.ActionCallback { public <init>(); }
