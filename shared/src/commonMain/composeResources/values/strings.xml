@@ -178,4 +178,8 @@
     <string name="image_size_header">Image size</string>
     <string name="image_size_original">Original size</string>
     <string name="image_size_reset">Reset size</string>
+    <string name="export_pdf_context_menu_item">Export to PDF</string>
+    <string name="exporting_pdf">Exporting %1$s…</string>
+    <string name="msg_pdf_exported">Saved as %1$s</string>
+    <string name="err_failed_export_pdf">Failed to export the PDF</string>
 </resources>

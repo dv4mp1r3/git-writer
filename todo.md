@@ -2,7 +2,6 @@
 
 > high priority
 
-- add possibility to export notes to pdf
 
 > medium priority
 
@@ -19,6 +18,7 @@
 - in the settings as possibility to change the commit message
 - add encryption possibility, this looks nice but probably wont work with iOS devices (<https://github.com/cryptomator/cryptofs>)
 - add nucleus fs-watcher (or other fs watcher)
+- fix pdf export -> dont export the compose page -> convert to html for proper text selection and reduced size
 
 > other ideas - lower priority
 
