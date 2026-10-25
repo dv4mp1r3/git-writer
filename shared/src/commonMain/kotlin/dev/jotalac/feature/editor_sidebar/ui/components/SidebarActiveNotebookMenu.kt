@@ -131,7 +131,7 @@ private fun ActiveNotebookActions(
 
         SidebarButtonWithTooltip(
             onClick = openEditNotebbokDialog,
-            icon = Res.drawable.edit_square,
+            icon = Res.drawable.edit_pencil,
             contentDescription = stringResource(Res.string.edit_active_notebook),
             tint = MaterialTheme.colorScheme.secondary,
             enabled = !isNotebookNull

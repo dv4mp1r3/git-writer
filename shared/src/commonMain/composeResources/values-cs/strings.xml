@@ -177,4 +177,8 @@
     <string name="image_size_header">Velikost obrázku</string>
     <string name="image_size_original">Původní velikost</string>
     <string name="image_size_reset">Obnovit velikost</string>
+    <string name="export_pdf_context_menu_item">Exportovat do PDF</string>
+    <string name="exporting_pdf">Exportuji %1$s…</string>
+    <string name="msg_pdf_exported">Uloženo jako %1$s</string>
+    <string name="err_failed_export_pdf">Export do PDF se nezdařil</string>
 </resources>

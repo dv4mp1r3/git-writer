@@ -117,6 +117,10 @@ kotlin {
             implementation(libs.kotlinx.coroutines.test)
             implementation(libs.koin.test)
         }
+        jvmTest.dependencies {
+            // Skia's native library, for tests that render Compose offscreen (the PDF export)
+            implementation(compose.desktop.currentOs)
+        }
 
         //shared platform for android and jvm (both running on JVM)
         val jvmAndAndroidMain = create("jvmAndAndroidMain") {

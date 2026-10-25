@@ -100,15 +100,16 @@ fun RenderedEditorBlock(
     }
 }
 
+/** One markdown block as the editor shows it - also used to render notes for the PDF export. */
 @Composable
-private fun RenderedMarkdownBlock(
+internal fun RenderedMarkdownBlock(
     text: String,
     modifier: Modifier = Modifier,
     onTextChange: (String) -> Unit = {},
+    darkCodeTheme: Boolean = isSystemInDarkTheme(),
 ) {
-    val isDarkTheme = isSystemInDarkTheme()
-    val highlightsBuilder = remember(isDarkTheme) {
-        Highlights.Builder().theme(SyntaxThemes.atom(darkMode = isDarkTheme))
+    val highlightsBuilder = remember(darkCodeTheme) {
+        Highlights.Builder().theme(SyntaxThemes.atom(darkMode = darkCodeTheme))
     }
 
     val currentText by rememberUpdatedState(text)

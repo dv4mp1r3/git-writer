@@ -178,4 +178,8 @@
     <string name="image_size_header">图片大小</string>
     <string name="image_size_original">原始大小</string>
     <string name="image_size_reset">重置大小</string>
+    <string name="export_pdf_context_menu_item">导出为 PDF</string>
+    <string name="exporting_pdf">正在导出 %1$s…</string>
+    <string name="msg_pdf_exported">已保存为 %1$s</string>
+    <string name="err_failed_export_pdf">导出 PDF 失败</string>
 </resources>
