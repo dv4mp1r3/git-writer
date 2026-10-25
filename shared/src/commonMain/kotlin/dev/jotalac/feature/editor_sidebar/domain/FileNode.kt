@@ -8,6 +8,8 @@ sealed class FileNode {
     data class File(
         override val name: String,
         override val path: String,
+        /** The real file on disk for vault notes (path is the virtual decrypted path); null for plain notebooks. */
+        val diskPath: String? = null,
     ) : FileNode()
 
     data class Directory(

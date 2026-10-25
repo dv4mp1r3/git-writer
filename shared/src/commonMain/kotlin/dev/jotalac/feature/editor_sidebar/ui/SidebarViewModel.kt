@@ -14,6 +14,9 @@ import dev.jotalac.feature.git_sync.domain.GitSyncStatus
 import dev.jotalac.feature.notebooks_management.domain.Notebook
 import dev.jotalac.feature.notebooks_management.domain.NotebookRepository
 import dev.jotalac.feature.pdf_export.PdfExportRequest
+import dev.jotalac.feature.vault.data.VaultController
+import dev.jotalac.feature.vault.domain.NoteVault
+import dev.jotalac.feature.vault.domain.VaultState
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.io.files.Path
@@ -28,6 +31,9 @@ import git_writer.shared.generated.resources.err_failed_move
 import git_writer.shared.generated.resources.err_failed_rename
 import git_writer.shared.generated.resources.msg_path_copied
 import git_writer.shared.generated.resources.msg_pdf_exported
+import git_writer.shared.generated.resources.msg_vault_unlocked
+import git_writer.shared.generated.resources.sidebar_locked_wrong
+import org.jetbrains.compose.resources.getString
 
 data class SidebarState(
     val activeNotebook: Notebook? = null,
@@ -36,6 +42,9 @@ data class SidebarState(
     val expandedFolders: Set<String> = emptySet(),
     val itemToRename: String? = null,
     val pdfExport: PdfExportRequest? = null,
+    val vaultState: VaultState = VaultState.Off,
+    val vaultBusy: Boolean = false,
+    val vaultError: String? = null,
 )
 
 class EditorSidebarViewModel(
@@ -43,6 +52,8 @@ class EditorSidebarViewModel(
     private val editorRepository: EditorRepository,
     private val snackbarManager: SnackbarManager,
     private val gitSyncRepository: GitSyncRepository,
+    private val vault: NoteVault,
+    private val vaultController: VaultController,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(SidebarState())
     val uiState: StateFlow<SidebarState> = _uiState.asStateFlow()
@@ -58,7 +69,14 @@ class EditorSidebarViewModel(
                 .distinctUntilChanged()
                 .collectLatest { notebook ->
                     if (notebook != null) {
-                        _uiState.update { it.copy(activeNotebook = notebook, expandedFolders = emptySet()) }
+                        _uiState.update {
+                            it.copy(
+                                activeNotebook = notebook,
+                                expandedFolders = emptySet(),
+                                vaultState = vault.stateOf(notebook),
+                                vaultError = null,
+                            )
+                        }
 
                         refreshFileTree()
                     } else {
@@ -66,13 +84,27 @@ class EditorSidebarViewModel(
                             currentState.copy(
                                 activeNotebook = null,
                                 fileTree = null,
-                                expandedFolders = emptySet()
+                                expandedFolders = emptySet(),
+                                vaultState = VaultState.Off,
+                                vaultError = null,
                             )
                         }
 
                         gitSyncRepository.updateSyncStatus(null)
                     }
                 }
+        }
+
+        viewModelScope.launch {
+            // switching to the decrypted tree (or back to raw names) when the vault state changes
+            vault.states.collect {
+                val activeNotebook = _uiState.value.activeNotebook ?: return@collect
+                val newState = vault.stateOf(activeNotebook)
+                if (newState != _uiState.value.vaultState) {
+                    _uiState.update { state -> state.copy(vaultState = newState) }
+                    refreshFileTree()
+                }
+            }
         }
 
         viewModelScope.launch {
@@ -116,9 +148,36 @@ class EditorSidebarViewModel(
             is SidebarAction.DuplicateNote -> duplicateNote(action.notePath)
             is SidebarAction.ExportPdf -> exportPdf(action.notePath)
             is SidebarAction.PdfExportFinished -> finishPdfExport(action.result)
+            is SidebarAction.UnlockVault -> unlockVault(action.input, action.isRecoveryKey)
 
             is SidebarAction.CopyItemPath -> {
                 snackbarManager.showMessage(SnackbarText.resource(Res.string.msg_path_copied))
+            }
+        }
+    }
+
+    /**
+     * Unlocking from the sidebar is the catch-up flow for a notebook another device encrypted:
+     * unlock and pull the remote state in, carrying over any notes typed while it was locked.
+     */
+    private fun unlockVault(input: String, isRecoveryKey: Boolean) {
+        val notebook = _uiState.value.activeNotebook ?: return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(vaultBusy = true, vaultError = null) }
+
+            val result = if (isRecoveryKey) {
+                vaultController.adoptEncryptedNotebookWithRecoveryKey(notebook, input)
+            } else {
+                vaultController.adoptEncryptedNotebook(notebook, input)
+            }
+
+            result.onSuccess {
+                _uiState.update { it.copy(vaultBusy = false, vaultError = null) }
+                snackbarManager.showMessage(SnackbarText.resource(Res.string.msg_vault_unlocked))
+            }.onFailure { error ->
+                if (error is CancellationException) throw error
+                _uiState.update { it.copy(vaultBusy = false, vaultError = getString(Res.string.sidebar_locked_wrong)) }
             }
         }
     }
@@ -277,7 +336,11 @@ class EditorSidebarViewModel(
         filesRefreshJob = viewModelScope.launch {
             val notebookPath = Path(activeNotebook.directoryPath)
             val filesTree = withContext(Dispatchers.IO) {
-                notebookPath.buildFileTree()
+                when (vault.stateOf(activeNotebook)) {
+                    // vault notebooks list their decrypted paths, built from the encrypted headers
+                    is VaultState.Unlocked, VaultState.Locked -> vault.buildFileTree(activeNotebook) ?: notebookPath.buildFileTree()
+                    VaultState.Off -> notebookPath.buildFileTree()
+                }
             }
 
             _uiState.update { currentState ->

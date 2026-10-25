@@ -67,6 +67,8 @@ kotlin {
             implementation(libs.ktor.client.okhttp)
             implementation(libs.jgit.latest)
             implementation(libs.nucleus.spell.check)
+            // OS keychains for the vault (DPAPI on Windows, Keychain on macOS)
+            implementation(libs.jna.platform)
         }
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)
@@ -92,6 +94,7 @@ kotlin {
             implementation(libs.room.runtime)
             implementation(libs.sqlite.bundled)
             implementation(libs.kotlinx.io)
+            implementation(libs.kotlinx.serialization.json)
             implementation(libs.datastore)
             implementation(libs.datastore.preferences)
 
@@ -111,6 +114,9 @@ kotlin {
             implementation(libs.latex.parser) // Parsing logic
 
             implementation(libs.connectivity.core)
+
+            // crypto primitives for the notes vault (XChaCha20-Poly1305, Argon2id, keyed BLAKE2b)
+            implementation(libs.libsodium.bindings)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -149,6 +155,13 @@ compose {
     resources {
         publicResClass = true
     }
+}
+
+// vault crypto tests need the native libsodium; the Android-host unit tests run on a plain JVM
+// where the AAR's natives (jni/<abi>) aren't visible. The JVM leg is covered by jvmTest (same
+// JVM code path), the native leg by iOS simulator tests in CI and by on-device E2E.
+tasks.withType(Test::class).matching { it.name == "testAndroidHostTest" }.configureEach {
+    exclude("dev/jotalac/feature/vault/**")
 }
 
 dependencies {

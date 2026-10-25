@@ -177,10 +177,8 @@ class NotebookRepositoryImpl(
             val credentialsVerificationResult =
                 gitSyncRepository.validateCredentials(remoteUrl, remotePasswordOrToken, remoteUsername)
             if (credentialsVerificationResult.isFailure) {
-                println(credentialsVerificationResult.exceptionOrNull())
-
                 Path(directoryPath).deleteRecursively()
-                throw IllegalStateException("Invalid remote credentials")
+                throw credentialsError(credentialsVerificationResult)
             }
 
             // clone the repository
@@ -317,9 +315,16 @@ class NotebookRepositoryImpl(
     ) {
         val validationResult = gitSyncRepository.validateCredentials(remoteUrl, remotePassword, remoteUsername)
         if (validationResult.isFailure) {
-            throw IllegalStateException("Invalid remote credentials")
+            throw credentialsError(validationResult)
         }
     }
+
+    /** The git transport exception carries the real reason ("not authorized", DNS, ...) - show it. */
+    private fun credentialsError(result: Result<*>): IllegalStateException =
+        IllegalStateException(
+            "Invalid remote credentials: "
+                + (result.exceptionOrNull()?.message?.takeIf { it.isNotBlank() } ?: "unknown error")
+        )
 
     override suspend fun activateNotebook(id: Long): Result<Notebook> = withContext(Dispatchers.IO) {
         suspendRunCatching {

@@ -18,6 +18,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.jotalac.core.utils.buildClipEntry
 import dev.jotalac.core.utils.isDesktopPlatform
 import dev.jotalac.feature.editor_sidebar.ui.components.ActiveNotebookMenu
+import dev.jotalac.feature.editor_sidebar.ui.components.VaultLockedPanel
+import dev.jotalac.feature.vault.domain.VaultState
 import dev.jotalac.feature.editor_sidebar.ui.components.SidebarGlobalActions
 import dev.jotalac.feature.editor_sidebar.ui.components.file_tree.FileTree
 import dev.jotalac.feature.notebooks_management.ui.create_notebook.CreateNotebookDialog
@@ -141,7 +143,15 @@ fun SidebarContent(
 
 
         //display the folders content
-        if (state.fileTree != null) {
+        if (state.vaultState is VaultState.Locked) {
+            VaultLockedPanel(
+                busy = state.vaultBusy,
+                error = state.vaultError,
+                onUnlock = { input, isRecoveryKey ->
+                    viewModel.onAction(SidebarAction.UnlockVault(input, isRecoveryKey))
+                },
+            )
+        } else if (state.fileTree != null) {
             val visibleItems = remember(state.fileTree, state.expandedFolders) {
                 viewModel.getVisibleNodes(state.fileTree!!, state.expandedFolders)
             }

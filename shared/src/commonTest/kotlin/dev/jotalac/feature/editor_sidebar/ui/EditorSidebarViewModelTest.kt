@@ -12,6 +12,9 @@ import dev.jotalac.feature.pdf_export.PdfExportRequest
 import dev.jotalac.testing.fakes.FakeEditorRepository
 import dev.jotalac.testing.fakes.FakeGitSyncRepository
 import dev.jotalac.testing.fakes.FakeNotebookRepository
+import dev.jotalac.testing.fakes.FakeNoteVault
+import dev.jotalac.feature.vault.data.VaultController
+import dev.jotalac.feature.vault.data.VaultFileStore
 import dev.jotalac.testing.viewModelTest
 import git_writer.shared.generated.resources.Res
 import git_writer.shared.generated.resources.err_failed_add_note
@@ -53,6 +56,7 @@ class EditorSidebarViewModelTest {
     private val notebooks = FakeNotebookRepository()
     private val snackbar = SnackbarManager()
     private val gitSync = FakeGitSyncRepository()
+    private val vault = FakeNoteVault()
 
     private lateinit var notebookDir: Path
 
@@ -69,7 +73,10 @@ class EditorSidebarViewModelTest {
 
     private val viewModels = mutableListOf<EditorSidebarViewModel>()
 
-    private fun createViewModel() = EditorSidebarViewModel(notebooks, editor, snackbar, gitSync).also { viewModels += it }
+    private fun createViewModel() = EditorSidebarViewModel(
+        notebooks, editor, snackbar, gitSync, vault,
+        VaultController(gitSync, vault, VaultFileStore()),
+    ).also { viewModels += it }
 
     /**
      * [viewModelTest] that also stops the ViewModels before the test ends. Their tree refresh runs on the

@@ -13,4 +13,5 @@ sealed interface SidebarAction {
     // the saved file's name, null when the save dialog was cancelled
     data class PdfExportFinished(val result: Result<String?>) : SidebarAction
     data class SetRenameItem(val path: String?) : SidebarAction
+    data class UnlockVault(val input: String, val isRecoveryKey: Boolean) : SidebarAction
 }
