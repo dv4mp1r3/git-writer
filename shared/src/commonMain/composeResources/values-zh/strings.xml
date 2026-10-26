@@ -123,6 +123,15 @@
     <string name="settings_auto_merge_preference_label">自动合并偏好</string>
     <string name="settings_auto_accept_local">始终接受本地更改</string>
     <string name="settings_auto_accept_remote">始终接受远程更改</string>
+    <string name="settings_network_title">网络</string>
+    <string name="settings_network_section_title">代理</string>
+    <string name="settings_network_section_subtitle">通过代理服务器同步 Git（HTTP/SOCKS5）</string>
+    <string name="settings_network_enable_label">使用代理</string>
+    <string name="settings_network_protocol_label">协议</string>
+    <string name="settings_network_host_label">主机</string>
+    <string name="settings_network_port_label">端口</string>
+    <string name="settings_network_username_label">用户名（可选）</string>
+    <string name="settings_network_password_label">密码（可选）</string>
     <string name="settings_use_dynamic_color">使用动态取色</string>
     <string name="delete_block_content_description">删除块</string>
     <string name="new_tab">新建标签页</string>

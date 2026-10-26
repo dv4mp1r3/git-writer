@@ -2,6 +2,8 @@
 
 package dev.jotalac.feature.git_sync.data
 
+import dev.jotalac.core.data.UserSettings
+import dev.jotalac.core.domain.ProxyConfig
 import dev.jotalac.core.utils.suspendRunCatching
 import dev.jotalac.feature.git_sync.data.libgit2.GitCredentials
 import dev.jotalac.feature.git_sync.data.libgit2.GitException
@@ -37,6 +39,7 @@ import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.io.buffered
 import kotlinx.io.files.Path
@@ -49,7 +52,10 @@ private const val DEFAULT_REMOTE = "origin"
 private val GitDispatcher = Dispatchers.IO.limitedParallelism(1)
 
 /** iOS [GitSyncRepository] on libgit2 (see the libgit2 package) - does what JGitSyncRepositoryImpl does. */
-class LibGit2SyncRepositoryImpl : GitSyncRepository {
+class LibGit2SyncRepositoryImpl(
+    // null in tests without a settings store - then no proxy is ever applied
+    private val settings: UserSettings? = null,
+) : GitSyncRepository {
 
     init {
         // required before any other libgit2 call - it is counted, so another instance does no harm
@@ -59,12 +65,16 @@ class LibGit2SyncRepositoryImpl : GitSyncRepository {
     private val _syncStatus = MutableSharedFlow<GitSyncStatus>(extraBufferCapacity = 1)
     override val gitSyncStatus: Flow<GitSyncStatus> = _syncStatus.asSharedFlow()
 
+    // the proxy config lives in the app settings; an incomplete one stays off (see ProxyConfig.isActive)
+    private suspend fun proxy(): ProxyConfig? =
+        settings?.userSettingsStateFlow?.first()?.proxy?.takeIf { it.isActive() }
+
     override suspend fun validateCredentials(
         repoUrl: String,
         tokenOrPassword: String,
         username: String?,
     ): Result<Unit> = runGit {
-        checkRemoteAccess(repoUrl, GitCredentials(username, tokenOrPassword))
+        checkRemoteAccess(repoUrl, GitCredentials(username, tokenOrPassword), proxy())
     }
 
     override suspend fun initRepository(currentNotebookPath: String): Result<Unit> = runGit {
@@ -77,7 +87,7 @@ class LibGit2SyncRepositoryImpl : GitSyncRepository {
         destinationPath: String,
         username: String?,
     ): Result<Unit> = runGit {
-        GitRepository.clone(repoUrl, destinationPath, GitCredentials(username, tokenOrPassword)).close()
+        GitRepository.clone(repoUrl, destinationPath, GitCredentials(username, tokenOrPassword), proxy()).close()
     }
 
     override suspend fun syncNotes(
@@ -91,13 +101,14 @@ class LibGit2SyncRepositoryImpl : GitSyncRepository {
         return runGit {
             GitRepository.open(currentNotebookPath).use { repo ->
                 val credentials = GitCredentials(username, tokenOrPassword)
+                val proxy = proxy()
                 repo.commitAll(commitMessage)
-                repo.fetch(DEFAULT_REMOTE, credentials)
+                repo.fetch(DEFAULT_REMOTE, credentials, proxy)
 
                 when (repo.mergeFetched(DEFAULT_REMOTE)) {
                     MergeResult.Conflicts -> GitSyncStatus.Conflict(repo.conflictedFiles())
                     MergeResult.UpToDate, MergeResult.Merged -> {
-                        if (repo.hasUnpushedCommits(DEFAULT_REMOTE)) repo.push(DEFAULT_REMOTE, credentials)
+                        if (repo.hasUnpushedCommits(DEFAULT_REMOTE)) repo.push(DEFAULT_REMOTE, credentials, proxy = proxy)
                         GitSyncStatus.UpToDate
                     }
                 }
@@ -137,7 +148,7 @@ class LibGit2SyncRepositoryImpl : GitSyncRepository {
         username: String?,
     ): Result<Unit> = runGit {
         GitRepository.open(currentNotebookPath).use { repo ->
-            repo.push(DEFAULT_REMOTE, GitCredentials(username, tokenOrPassword))
+            repo.push(DEFAULT_REMOTE, GitCredentials(username, tokenOrPassword), proxy = proxy())
         }
     }.onSuccess { _syncStatus.tryEmit(GitSyncStatus.UpToDate) }
 
@@ -182,7 +193,7 @@ class LibGit2SyncRepositoryImpl : GitSyncRepository {
         username: String?,
     ): Result<Unit> = runGit {
         GitRepository.open(currentNotebookPath).use { repo ->
-            repo.push(DEFAULT_REMOTE, GitCredentials(username, tokenOrPassword), force = true)
+            repo.push(DEFAULT_REMOTE, GitCredentials(username, tokenOrPassword), force = true, proxy = proxy())
         }
     }
 
@@ -193,7 +204,7 @@ class LibGit2SyncRepositoryImpl : GitSyncRepository {
     ): Result<Unit> = runGit {
         GitRepository.open(currentNotebookPath).use { repo ->
             val branch = repo.currentBranch ?: throw GitException("HEAD is detached, there is no branch to reset")
-            repo.fetch(DEFAULT_REMOTE, GitCredentials(username, tokenOrPassword))
+            repo.fetch(DEFAULT_REMOTE, GitCredentials(username, tokenOrPassword), proxy())
             // moves the branch onto the remote commit and throws the local worktree state away
             repo.resetHard("refs/remotes/$DEFAULT_REMOTE/$branch")
         }

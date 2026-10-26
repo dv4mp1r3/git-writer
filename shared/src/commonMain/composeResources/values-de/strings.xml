@@ -123,6 +123,15 @@
     <string name="settings_auto_merge_preference_label">Voreinstellung für automatischen Merge</string>
     <string name="settings_auto_accept_local">Lokale Änderungen immer übernehmen</string>
     <string name="settings_auto_accept_remote">Remote-Änderungen immer übernehmen</string>
+    <string name="settings_network_title">Netzwerk</string>
+    <string name="settings_network_section_title">Proxy</string>
+    <string name="settings_network_section_subtitle">Git-Sync über einen Proxy-Server leiten (HTTP/SOCKS5)</string>
+    <string name="settings_network_enable_label">Proxy verwenden</string>
+    <string name="settings_network_protocol_label">Protokoll</string>
+    <string name="settings_network_host_label">Host</string>
+    <string name="settings_network_port_label">Port</string>
+    <string name="settings_network_username_label">Benutzername (optional)</string>
+    <string name="settings_network_password_label">Passwort (optional)</string>
     <string name="settings_use_dynamic_color">Dynamic Color verwenden</string>
     <string name="delete_block_content_description">Block löschen</string>
     <string name="new_tab">Neuer Tab</string>

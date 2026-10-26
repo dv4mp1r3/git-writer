@@ -123,6 +123,15 @@
     <string name="settings_auto_merge_preference_label">Předvolba automatického sloučení</string>
     <string name="settings_auto_accept_local">Vždy přijmout místní změny</string>
     <string name="settings_auto_accept_remote">Vždy přijmout vzdálené změny</string>
+    <string name="settings_network_title">Síť</string>
+    <string name="settings_network_section_title">Proxy</string>
+    <string name="settings_network_section_subtitle">Směrovat synchronizaci git přes proxy server (HTTP/SOCKS5)</string>
+    <string name="settings_network_enable_label">Použít proxy</string>
+    <string name="settings_network_protocol_label">Protokol</string>
+    <string name="settings_network_host_label">Hostitel</string>
+    <string name="settings_network_port_label">Port</string>
+    <string name="settings_network_username_label">Uživatelské jméno (volitelné)</string>
+    <string name="settings_network_password_label">Heslo (volitelné)</string>
     <string name="settings_use_dynamic_color">Použít Dynamic Color</string>
     <string name="delete_block_content_description">Smazat blok</string>
     <string name="new_tab">Nová karta</string>

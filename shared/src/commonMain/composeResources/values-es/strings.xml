@@ -122,6 +122,15 @@
     <string name="settings_auto_merge_preference_label">Preferencia de fusión automática</string>
     <string name="settings_auto_accept_local">Aceptar siempre cambios locales</string>
     <string name="settings_auto_accept_remote">Aceptar siempre cambios remotos</string>
+    <string name="settings_network_title">Red</string>
+    <string name="settings_network_section_title">Proxy</string>
+    <string name="settings_network_section_subtitle">Redirigir la sincronización de git a través de un servidor proxy (HTTP/SOCKS5)</string>
+    <string name="settings_network_enable_label">Usar proxy</string>
+    <string name="settings_network_protocol_label">Protocolo</string>
+    <string name="settings_network_host_label">Host</string>
+    <string name="settings_network_port_label">Puerto</string>
+    <string name="settings_network_username_label">Usuario (opcional)</string>
+    <string name="settings_network_password_label">Contraseña (opcional)</string>
     <string name="settings_use_dynamic_color">Usar Dynamic Color</string>
     <string name="delete_block_content_description">Eliminar bloque</string>
     <string name="new_tab">Nueva pestaña</string>

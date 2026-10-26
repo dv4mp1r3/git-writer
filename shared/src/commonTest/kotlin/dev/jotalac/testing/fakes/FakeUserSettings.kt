@@ -39,4 +39,9 @@ class FakeUserSettings(
         calledWrites += "spellcheckLanguage"
         settings.value = settings.value.copy(spellcheckLanguage = language)
     }
+
+    override suspend fun setProxyConfig(config: ProxyConfig) {
+        calledWrites += "proxyConfig"
+        settings.value = settings.value.copy(proxy = config)
+    }
 }

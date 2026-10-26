@@ -21,6 +21,7 @@ import dev.jotalac.core.ui.components.AppVerticalScrollbar
 import dev.jotalac.core.ui.theme.dimensions
 import dev.jotalac.feature.settings.ui.settings_sections.AppearanceSettings
 import dev.jotalac.feature.settings.ui.settings_sections.LanguageSettings
+import dev.jotalac.feature.settings.ui.settings_sections.NetworkSettings
 import dev.jotalac.feature.settings.ui.settings_sections.SyncSettings
 import git_writer.shared.generated.resources.Res
 import git_writer.shared.generated.resources.app_version_display
@@ -74,6 +75,11 @@ fun SettingsContent(
                 onStrategyChange = { onAction(SettingsViewModel.SettingsAction.ChangeGitConflictStrategy(it)) },
                 autoSync = userSettingsState.autoSync,
                 onAutoSyncChange = { onAction(SettingsViewModel.SettingsAction.ChangeAutoSync(it)) },
+            )
+
+            NetworkSettings(
+                proxy = userSettingsState.proxy,
+                onProxyChange = { onAction(SettingsViewModel.SettingsAction.ChangeProxyConfig(it)) },
             )
 
             // show current app version

@@ -21,4 +21,5 @@ interface UserSettings {
     suspend fun setSpellcheckLanguage(language: AppLanguage?)
     suspend fun setEditorFullWidth(fullWidth: Boolean)
     suspend fun setAutoSync(autoSync: Boolean)
+    suspend fun setProxyConfig(config: ProxyConfig)
 }
