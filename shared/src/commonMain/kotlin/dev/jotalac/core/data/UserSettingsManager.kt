@@ -4,6 +4,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import dev.jotalac.core.domain.*
 import kotlinx.coroutines.flow.Flow
@@ -19,6 +20,7 @@ data class UserSettingsState(
     val spellcheckLanguage: AppLanguage? = null,
     val editorFullWidth: Boolean = false,
     val autoSync: Boolean = true,
+    val proxy: ProxyConfig = ProxyConfig(),
 )
 
 class UserSettingsManager(
@@ -34,6 +36,12 @@ class UserSettingsManager(
         private val SPELLCHECK_LANGUAGE_KEY = stringPreferencesKey("spellcheck_language")
         private val EDITOR_FULL_WIDTH_KEY = booleanPreferencesKey("editor_full_width")
         private val AUTO_SYNC_KEY = booleanPreferencesKey("auto_sync")
+        private val PROXY_ENABLED_KEY = booleanPreferencesKey("proxy_enabled")
+        private val PROXY_PROTOCOL_KEY = stringPreferencesKey("proxy_protocol")
+        private val PROXY_HOST_KEY = stringPreferencesKey("proxy_host")
+        private val PROXY_PORT_KEY = intPreferencesKey("proxy_port")
+        private val PROXY_USERNAME_KEY = stringPreferencesKey("proxy_username")
+        private val PROXY_PASSWORD_KEY = stringPreferencesKey("proxy_password")
     }
 
     override val userSettingsStateFlow: Flow<UserSettingsState> = dataStore.data
@@ -60,6 +68,16 @@ class UserSettingsManager(
                 },
                 editorFullWidth = preferences[EDITOR_FULL_WIDTH_KEY] ?: false,
                 autoSync = preferences[AUTO_SYNC_KEY] ?: true,
+                proxy = ProxyConfig(
+                    enabled = preferences[PROXY_ENABLED_KEY] ?: false,
+                    protocol = preferences[PROXY_PROTOCOL_KEY]?.let { name ->
+                        ProxyProtocol.entries.find { it.name == name }
+                    } ?: ProxyProtocol.HTTP,
+                    host = preferences[PROXY_HOST_KEY] ?: "",
+                    port = preferences[PROXY_PORT_KEY] ?: 0,
+                    username = preferences[PROXY_USERNAME_KEY] ?: "",
+                    password = preferences[PROXY_PASSWORD_KEY] ?: "",
+                ),
             )
         }
 
@@ -121,6 +139,18 @@ class UserSettingsManager(
         }
     }
 
+    // written as one edit so a config change is all-or-nothing
+    override suspend fun setProxyConfig(config: ProxyConfig) {
+        dataStore.edit { preferences ->
+            preferences[PROXY_ENABLED_KEY] = config.enabled
+            preferences[PROXY_PROTOCOL_KEY] = config.protocol.name
+            preferences[PROXY_HOST_KEY] = config.host
+            preferences[PROXY_PORT_KEY] = config.port
+            preferences[PROXY_USERNAME_KEY] = config.username
+            preferences[PROXY_PASSWORD_KEY] = config.password
+        }
+    }
+
     suspend fun clearSettings() {
         dataStore.edit { preferences ->
             preferences.remove(THEME_MODE_KEY)
@@ -132,6 +162,12 @@ class UserSettingsManager(
             preferences.remove(EDITOR_FULL_WIDTH_KEY)
             preferences.remove(AUTO_SYNC_KEY)
             preferences.remove(USE_DYNAMIC_COLOR_KEY)
+            preferences.remove(PROXY_ENABLED_KEY)
+            preferences.remove(PROXY_PROTOCOL_KEY)
+            preferences.remove(PROXY_HOST_KEY)
+            preferences.remove(PROXY_PORT_KEY)
+            preferences.remove(PROXY_USERNAME_KEY)
+            preferences.remove(PROXY_PASSWORD_KEY)
         }
     }
 }

@@ -48,6 +48,9 @@ class SettingsViewModel(
 
                 is SettingsAction.ChangeAutoSync ->
                     userSettingsManager.setAutoSync(action.autoSync)
+
+                is SettingsAction.ChangeProxyConfig ->
+                    userSettingsManager.setProxyConfig(action.config)
             }
         }
     }
@@ -63,5 +66,6 @@ class SettingsViewModel(
         data class ChangeGitConflictStrategy(val strategy: GitConflictResolutionStrategy) : SettingsAction
         data class ChangeUseDynamicColor(val useDynamicColor: Boolean) : SettingsAction
         data class ChangeAutoSync(val autoSync: Boolean) : SettingsAction
+        data class ChangeProxyConfig(val config: ProxyConfig) : SettingsAction
     }
 }

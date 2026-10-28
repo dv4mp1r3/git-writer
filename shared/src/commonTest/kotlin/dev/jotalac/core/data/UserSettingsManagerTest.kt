@@ -7,6 +7,8 @@ import dev.jotalac.core.domain.AppLanguage
 import dev.jotalac.core.domain.AppThemeAccentColor
 import dev.jotalac.core.domain.AppThemeMode
 import dev.jotalac.core.domain.GitConflictResolutionStrategy
+import dev.jotalac.core.domain.ProxyConfig
+import dev.jotalac.core.domain.ProxyProtocol
 import dev.jotalac.testing.fakes.InMemoryDataStore
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -38,6 +40,16 @@ class UserSettingsManagerTest {
         settings.setSpellcheckLanguage(AppLanguage.CZECH)
         settings.setEditorFullWidth(true)
         settings.setAutoSync(true)
+        settings.setProxyConfig(
+            ProxyConfig(
+                enabled = true,
+                protocol = ProxyProtocol.SOCKS5,
+                host = "proxy.example.com",
+                port = 1080,
+                username = "user",
+                password = "pass",
+            )
+        )
 
         assertEquals(
             UserSettingsState(
@@ -50,6 +62,14 @@ class UserSettingsManagerTest {
                 spellcheckLanguage = AppLanguage.CZECH,
                 editorFullWidth = true,
                 autoSync = true,
+                proxy = ProxyConfig(
+                    enabled = true,
+                    protocol = ProxyProtocol.SOCKS5,
+                    host = "proxy.example.com",
+                    port = 1080,
+                    username = "user",
+                    password = "pass",
+                ),
             ),
             current(),
         )

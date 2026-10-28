@@ -3,9 +3,13 @@
 package dev.jotalac.feature.git_sync.data.libgit2
 
 import cnames.structs.git_credential
+import dev.jotalac.core.domain.ProxyConfig
+import dev.jotalac.core.domain.ProxyProtocol
 import git2.GIT_CLONE_OPTIONS_VERSION
 import git2.GIT_DIRECTION_FETCH
 import git2.GIT_FETCH_OPTIONS_VERSION
+import git2.GIT_PROXY_OPTIONS_VERSION
+import git2.GIT_PROXY_SPECIFIED
 import git2.GIT_PUSH_OPTIONS_VERSION
 import git2.GIT_REMOTE_CALLBACKS_VERSION
 import git2.git_clone
@@ -14,6 +18,8 @@ import git2.git_clone_options_init
 import git2.git_credential_userpass_plaintext_new
 import git2.git_fetch_options
 import git2.git_fetch_options_init
+import git2.git_proxy_options
+import git2.git_proxy_options_init
 import git2.git_push_options
 import git2.git_push_options_init
 import git2.git_remote_callbacks
@@ -36,6 +42,7 @@ import kotlinx.cinterop.allocArrayOf
 import kotlinx.cinterop.asStableRef
 import kotlinx.cinterop.convert
 import kotlinx.cinterop.cstr
+import kotlinx.cinterop.getPointer
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
 import kotlinx.cinterop.staticCFunction
@@ -55,48 +62,108 @@ internal class GitCredentials(username: String?, val password: String) {
 }
 
 /** Checks that [url] can be reached with [credentials], without downloading anything (`git ls-remote`). */
-internal fun checkRemoteAccess(url: String, credentials: GitCredentials): Unit = memScoped {
+internal fun checkRemoteAccess(url: String, credentials: GitCredentials, proxy: ProxyConfig? = null): Unit = memScoped {
     val remote = create(::git_remote_free) { git_remote_create_anonymous(it, null, url) }
     val callbacks = alloc<git_remote_callbacks>()
     checkGit(git_remote_init_callbacks(callbacks.ptr, GIT_REMOTE_CALLBACKS_VERSION.convert()))
+    val proxyOptions = allocProxyOptions(proxy)
 
     // connecting already signs in and lists the remote's branches
     withRemoteCallbacks(callbacks, credentials) {
-        git_remote_connect(remote, GIT_DIRECTION_FETCH, callbacks.ptr, null, null)
+        withProxyCredentials(proxyOptions, proxy) {
+            git_remote_connect(remote, GIT_DIRECTION_FETCH, callbacks.ptr, proxyOptions?.ptr, null)
+        }
     }
 }
 
-internal fun GitRepository.Companion.clone(url: String, path: String, credentials: GitCredentials): GitRepository =
-    memScoped {
-        val options = alloc<git_clone_options>()
-        checkGit(git_clone_options_init(options.ptr, GIT_CLONE_OPTIONS_VERSION.convert()))
+internal fun GitRepository.Companion.clone(
+    url: String,
+    path: String,
+    credentials: GitCredentials,
+    proxy: ProxyConfig? = null,
+): GitRepository = memScoped {
+    val options = alloc<git_clone_options>()
+    checkGit(git_clone_options_init(options.ptr, GIT_CLONE_OPTIONS_VERSION.convert()))
+    setupProxyOptions(options.fetch_opts.proxy_opts, proxy)
 
-        openWith { out ->
-            withRemoteCallbacks(options.fetch_opts.callbacks, credentials) { git_clone(out, url, path, options.ptr) }
+    openWith { out ->
+        withRemoteCallbacks(options.fetch_opts.callbacks, credentials) {
+            withProxyCredentials(options.fetch_opts.proxy_opts, proxy) { git_clone(out, url, path, options.ptr) }
         }
     }
+}
 
 /** Downloads what is new on [remote] (`git fetch`). */
-internal fun GitRepository.fetch(remote: String, credentials: GitCredentials): Unit = memScoped {
+internal fun GitRepository.fetch(remote: String, credentials: GitCredentials, proxy: ProxyConfig? = null): Unit = memScoped {
     val remoteHandle = create(::git_remote_free) { git_remote_lookup(it, handle, remote) }
     val options = alloc<git_fetch_options>()
     checkGit(git_fetch_options_init(options.ptr, GIT_FETCH_OPTIONS_VERSION.convert()))
+    setupProxyOptions(options.proxy_opts, proxy)
 
-    withRemoteCallbacks(options.callbacks, credentials) { git_remote_fetch(remoteHandle, null, options.ptr, null) }
+    withRemoteCallbacks(options.callbacks, credentials) {
+        withProxyCredentials(options.proxy_opts, proxy) { git_remote_fetch(remoteHandle, null, options.ptr, null) }
+    }
 }
 
 /** Uploads the current branch to the branch of the same name on [remote] (`git push`, force overwrites the remote history). */
-internal fun GitRepository.push(remote: String, credentials: GitCredentials, force: Boolean = false): Unit = memScoped {
+internal fun GitRepository.push(
+    remote: String,
+    credentials: GitCredentials,
+    force: Boolean = false,
+    proxy: ProxyConfig? = null,
+): Unit = memScoped {
     val branch = currentBranch ?: throw GitException("HEAD is detached, there is no branch to push")
     val remoteHandle = create(::git_remote_free) { git_remote_lookup(it, handle, remote) }
     val options = alloc<git_push_options>()
     checkGit(git_push_options_init(options.ptr, GIT_PUSH_OPTIONS_VERSION.convert()))
+    setupProxyOptions(options.proxy_opts, proxy)
     val refspecs = alloc<git_strarray> {
         strings = allocArrayOf("${if (force) "+" else ""}refs/heads/$branch:refs/heads/$branch".cstr.ptr)
         count = 1u
     }
 
-    withRemoteCallbacks(options.callbacks, credentials) { git_remote_push(remoteHandle, refspecs.ptr, options.ptr) }
+    withRemoteCallbacks(options.callbacks, credentials) {
+        withProxyCredentials(options.proxy_opts, proxy) { git_remote_push(remoteHandle, refspecs.ptr, options.ptr) }
+    }
+}
+
+// --- proxy
+
+/**
+ * Fills the already-initialized [target] to route the operation through [proxy]; without one the struct
+ * keeps its default (no proxy). The libgit2 builtin HTTP client tunnels through CONNECT, so only HTTP
+ * proxies are possible here.
+ */
+private fun MemScope.setupProxyOptions(target: git_proxy_options, proxy: ProxyConfig?) {
+    if (proxy == null) return
+    if (proxy.protocol != ProxyProtocol.HTTP) throw GitException("SOCKS proxies are not supported on iOS")
+    target.type = GIT_PROXY_SPECIFIED
+    // the C string lives in this memScope - the git call using it happens inside the same scope
+    target.url = proxy.toProxyUrl().cstr.getPointer(this)
+}
+
+/** A standalone proxy options struct for [git_remote_connect], which validates the version field - null means none. */
+private fun MemScope.allocProxyOptions(proxy: ProxyConfig?): git_proxy_options? {
+    if (proxy == null) return null
+    if (proxy.protocol != ProxyProtocol.HTTP) throw GitException("SOCKS proxies are not supported on iOS")
+    val options = alloc<git_proxy_options>()
+    checkGit(git_proxy_options_init(options.ptr, GIT_PROXY_OPTIONS_VERSION.convert()))
+    setupProxyOptions(options, proxy)
+    return options
+}
+
+/** Answers the proxy's authentication prompt with the proxy credentials for the duration of [call]. */
+private inline fun <T> withProxyCredentials(target: git_proxy_options?, proxy: ProxyConfig?, call: () -> T): T {
+    if (target == null || proxy == null || (proxy.username.isBlank() && proxy.password.isBlank())) return call()
+    val state = CallbackState(GitCredentials(proxy.username, proxy.password))
+    val payload = StableRef.create(state)
+    try {
+        target.credentials = credentialsCallback
+        target.payload = payload.asCPointer()
+        return call()
+    } finally {
+        payload.dispose()
+    }
 }
 
 // --- callbacks

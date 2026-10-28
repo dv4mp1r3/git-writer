@@ -123,6 +123,15 @@
     <string name="settings_auto_merge_preference_label">Auto merge preference</string>
     <string name="settings_auto_accept_local">Always accept local changes</string>
     <string name="settings_auto_accept_remote">Always accept remote changes</string>
+    <string name="settings_network_title">Network</string>
+    <string name="settings_network_section_title">Proxy</string>
+    <string name="settings_network_section_subtitle">Route git sync through a proxy server (HTTP/SOCKS5)</string>
+    <string name="settings_network_enable_label">Use proxy</string>
+    <string name="settings_network_protocol_label">Protocol</string>
+    <string name="settings_network_host_label">Host</string>
+    <string name="settings_network_port_label">Port</string>
+    <string name="settings_network_username_label">Username (optional)</string>
+    <string name="settings_network_password_label">Password (optional)</string>
     <string name="settings_use_dynamic_color">Use Dynamic Color</string>
     <string name="delete_block_content_description">Delete block</string>
     <string name="new_tab">New tab</string>

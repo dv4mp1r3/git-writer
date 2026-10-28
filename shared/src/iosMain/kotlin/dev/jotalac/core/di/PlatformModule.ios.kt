@@ -4,6 +4,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.room.RoomDatabase
 import dev.jotalac.core.data.DATA_STORE_FILE_NAME
+import dev.jotalac.core.data.UserSettings
 import dev.jotalac.core.database.AppDatabase
 import dev.jotalac.core.database.getDatabaseBuilder
 import dev.jotalac.feature.notebooks_management.domain.IosNotebookPathProvider
@@ -52,7 +53,7 @@ actual val platformModule: Module = module {
 
     // the concrete type under a qualifier - the common module wraps it in the vault-aware decorator
     single<GitSyncRepository>(gitSyncBase) {
-        LibGit2SyncRepositoryImpl()
+        LibGit2SyncRepositoryImpl(settings = get<UserSettings>())
     }
 
     single<dev.jotalac.feature.vault.domain.SecureKeyCache> { dev.jotalac.feature.vault.domain.SecureKeyStorage() }
