@@ -4,3 +4,4 @@ actual val isDesktopPlatform = false
 
 actual val isMacOsPlatform = false
 actual val isWindowsPlatform = false
+actual val isIosPlatform = true

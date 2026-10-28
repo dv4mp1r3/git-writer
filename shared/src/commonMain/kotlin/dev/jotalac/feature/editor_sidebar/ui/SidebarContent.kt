@@ -18,11 +18,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.jotalac.core.utils.buildClipEntry
 import dev.jotalac.core.utils.isDesktopPlatform
 import dev.jotalac.feature.editor_sidebar.ui.components.ActiveNotebookMenu
+import dev.jotalac.feature.editor_sidebar.ui.components.VaultLockedPanel
+import dev.jotalac.feature.vault.domain.VaultState
 import dev.jotalac.feature.editor_sidebar.ui.components.SidebarGlobalActions
 import dev.jotalac.feature.editor_sidebar.ui.components.file_tree.FileTree
 import dev.jotalac.feature.notebooks_management.ui.create_notebook.CreateNotebookDialog
 import dev.jotalac.feature.notebooks_management.ui.edit_notebook.EditNotebookDialog
 import dev.jotalac.feature.notebooks_management.ui.list_notebooks.NotebookListDialog
+import dev.jotalac.feature.pdf_export.PdfExportDialog
 import dev.jotalac.feature.settings.ui.SettingsDialog
 import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
@@ -72,6 +75,10 @@ fun SidebarContent(
             notebook = state.activeNotebook!!,
             onDismiss = { showEditNotebookDialog = false }
         )
+    }
+
+    state.pdfExport?.let { request ->
+        PdfExportDialog(request, onFinished = { viewModel.onAction(SidebarAction.PdfExportFinished(it)) })
     }
 
     if (showDesktopSettingsDialog) {
@@ -136,7 +143,15 @@ fun SidebarContent(
 
 
         //display the folders content
-        if (state.fileTree != null) {
+        if (state.vaultState is VaultState.Locked) {
+            VaultLockedPanel(
+                busy = state.vaultBusy,
+                error = state.vaultError,
+                onUnlock = { input, isRecoveryKey ->
+                    viewModel.onAction(SidebarAction.UnlockVault(input, isRecoveryKey))
+                },
+            )
+        } else if (state.fileTree != null) {
             val visibleItems = remember(state.fileTree, state.expandedFolders) {
                 viewModel.getVisibleNodes(state.fileTree!!, state.expandedFolders)
             }

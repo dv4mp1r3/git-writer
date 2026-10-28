@@ -7,6 +7,7 @@ import dev.jotalac.core.data.DATA_STORE_FILE_NAME
 import dev.jotalac.core.data.createDataStore
 import dev.jotalac.core.database.AppDatabase
 import dev.jotalac.core.database.getDatabaseBuilder
+import dev.jotalac.core.proxy.GitProxyManager
 import dev.jotalac.feature.git_sync.data.JGitSyncRepositoryImpl
 import dev.jotalac.feature.git_sync.domain.GitSyncRepository
 import dev.jotalac.feature.notebooks_management.domain.DesktopNotebookPathProvider
@@ -41,7 +42,13 @@ actual val platformModule: Module = module {
         }
     }
 
-    single<GitSyncRepository> {
+    // the concrete type under a qualifier - the common module wraps it in the vault-aware decorator
+    single<GitSyncRepository>(gitSyncBase) {
         JGitSyncRepositoryImpl()
     }
+
+    // eagerly, before the HttpClient single: OkHttp captures the default ProxySelector when built
+    single(createdAtStart = true) { GitProxyManager(get()) }
+
+    single<dev.jotalac.feature.vault.domain.SecureKeyCache> { dev.jotalac.feature.vault.domain.SecureKeyStorage() }
 }

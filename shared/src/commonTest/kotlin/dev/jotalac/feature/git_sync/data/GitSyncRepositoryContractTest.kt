@@ -2,6 +2,7 @@ package dev.jotalac.feature.git_sync.data
 
 import dev.jotalac.feature.git_sync.domain.GitSyncRepository
 import dev.jotalac.feature.git_sync.domain.GitSyncStatus
+import dev.jotalac.feature.git_sync.domain.VAULT_GIT_NAME
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.buffered
 import kotlinx.io.files.Path
@@ -34,6 +35,12 @@ abstract class GitSyncRepositoryContractTest {
 
     /** Commits everything in the working tree at [path], without pushing it. */
     protected abstract fun commitWithoutPushing(path: String)
+
+    /** The messages of the commits on the current branch at [path], newest first. */
+    protected abstract fun commitMessages(path: String): List<String>
+
+    /** The author name of the newest commit at [path]. */
+    protected abstract fun lastCommitAuthorName(path: String): String
 
     private val root = Path(SystemTemporaryDirectory, "git-sync-test-${Random.nextLong().toULong()}")
     private val remote = Path(root, "remote.git").toString()
@@ -216,6 +223,87 @@ abstract class GitSyncRepositoryContractTest {
         }
         sync(phone).getOrThrow()
         return laptop
+    }
+
+    // --- history rewriting (encryption is turned on or off)
+
+    @Test
+    fun `resetting the history keeps the notes in one fresh commit`() = runTest {
+        val laptop = device("laptop")
+        write(laptop, "a.md", "a")
+        sync(laptop).getOrThrow()
+        write(laptop, "b.md", "b")
+        commitWithoutPushing(laptop)
+
+        repository.resetHistoryToCurrentState(laptop, "start over").getOrThrow()
+
+        assertEquals(listOf("start over"), commitMessages(laptop))
+        assertEquals("a", read(laptop, "a.md"))
+        assertEquals("b", read(laptop, "b.md"))
+    }
+
+    @Test
+    fun `a forced push replaces the history on the remote`() = runTest {
+        val laptop = device("laptop")
+        val phone = device("phone")
+        write(phone, "from-phone.md", "phone")
+        sync(phone).getOrThrow()
+        write(laptop, "from-laptop.md", "laptop")
+        sync(laptop).getOrThrow()
+        // the rewritten history diverged from the remote - a normal push would be rejected now
+        repository.resetHistoryToCurrentState(laptop, "start over").getOrThrow()
+
+        repository.forcePush(laptop, "token", "user").getOrThrow()
+
+        val check = device("check-${checkouts++}")
+        assertEquals(listOf("start over"), commitMessages(check))
+        assertEquals("phone", read(check, "from-phone.md"))
+        assertEquals("laptop", read(check, "from-laptop.md"))
+    }
+
+    @Test
+    fun `a device catches up with a rewritten remote by resetting to it`() = runTest {
+        val laptop = device("laptop")
+        val phone = device("phone")
+        write(phone, "from-phone.md", "phone")
+        sync(phone).getOrThrow()
+        sync(laptop).getOrThrow()
+        repository.resetHistoryToCurrentState(laptop, "start over").getOrThrow()
+        repository.forcePush(laptop, "token", "user").getOrThrow()
+        // the phone still has the old history, plus a commit of its own the vault flow would move away first
+        write(phone, "local-edit.md", "local")
+        commitWithoutPushing(phone)
+
+        repository.resetToRemote(phone, "token", "user").getOrThrow()
+
+        assertEquals(listOf("start over"), commitMessages(phone))
+        assertEquals("phone", read(phone, "from-phone.md"))
+        assertFalse(SystemFileSystem.exists(Path(phone, "local-edit.md")))
+    }
+
+    @Test
+    fun `conflict versions expose all three sides and staging writes the merge`() = runTest {
+        val laptop = laptopWithConflictingEdits()
+        sync(laptop).getOrThrow()
+
+        val versions = repository.getConflictVersions(laptop, "a.md").getOrThrow()
+        assertEquals("base", versions[1]?.decodeToString())
+        assertEquals("laptop", versions[2]?.decodeToString())
+        assertEquals("phone", versions[3]?.decodeToString())
+
+        repository.stageFile(laptop, "a.md", "merged".encodeToByteArray()).getOrThrow()
+        assertEquals("merged", read(laptop, "a.md"))
+    }
+
+    @Test
+    fun `the repo-local identity signs the new commits`() = runTest {
+        val laptop = device("laptop")
+        repository.setRepoIdentity(laptop).getOrThrow()
+        write(laptop, "a.md", "a")
+
+        sync(laptop).getOrThrow()
+
+        assertEquals(VAULT_GIT_NAME, lastCommitAuthorName(laptop))
     }
 
     // --- helpers
