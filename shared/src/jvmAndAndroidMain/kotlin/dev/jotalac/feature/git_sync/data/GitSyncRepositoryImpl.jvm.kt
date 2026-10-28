@@ -3,6 +3,8 @@ package dev.jotalac.feature.git_sync.data
 import dev.jotalac.core.utils.suspendRunCatching
 import dev.jotalac.feature.git_sync.domain.GitSyncRepository
 import dev.jotalac.feature.git_sync.domain.GitSyncStatus
+import dev.jotalac.feature.git_sync.domain.VAULT_GIT_EMAIL
+import dev.jotalac.feature.git_sync.domain.VAULT_GIT_NAME
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -10,6 +12,9 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.withContext
 import org.eclipse.jgit.api.*
 import org.eclipse.jgit.lib.BranchTrackingStatus
+import org.eclipse.jgit.lib.CommitBuilder
+import org.eclipse.jgit.lib.PersonIdent
+import org.eclipse.jgit.lib.RefUpdate
 import org.eclipse.jgit.lib.RepositoryState
 import org.eclipse.jgit.transport.RemoteRefUpdate
 import org.eclipse.jgit.transport.URIish
@@ -171,8 +176,8 @@ class JGitSyncRepositoryImpl : GitSyncRepository {
 
     // JGit only throws when it cannot reach the remote (its exception keeps the real cause) - a push the
     // remote refuses (it has newer commits, protected branch, server hook) comes back as a status
-    private fun pushOrThrow(git: Git, credentials: UsernamePasswordCredentialsProvider) {
-        val rejected = git.push().setCredentialsProvider(credentials).call()
+    private fun pushOrThrow(git: Git, credentials: UsernamePasswordCredentialsProvider, force: Boolean = false) {
+        val rejected = git.push().setForce(force).setCredentialsProvider(credentials).call()
             .flatMap { it.remoteUpdates }
             .filter { it.status != RemoteRefUpdate.Status.OK && it.status != RemoteRefUpdate.Status.UP_TO_DATE }
 
@@ -343,6 +348,159 @@ class JGitSyncRepositoryImpl : GitSyncRepository {
             }
         }
     }
+
+    override suspend fun resetHistoryToCurrentState(currentNotebookPath: String, commitMessage: String): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            suspendRunCatching {
+                val localRepoDir = getLocalRepoDir(currentNotebookPath)
+
+                Git.open(localRepoDir).use { git ->
+                    val repo = git.repository
+                    val branch = repo.branch
+
+                    // the worktree as it is - new and edited files, then the deleted ones
+                    git.add().addFilepattern(".").call()
+                    git.add().addFilepattern(".").setUpdate(true).call()
+
+                    // a commit without parents: everything before it leaves the branch
+                    val inserter = repo.newObjectInserter()
+                    val commit = CommitBuilder().apply {
+                        setTreeId(repo.readDirCache().writeTree(inserter))
+                        author = PersonIdent(repo)
+                        committer = PersonIdent(repo)
+                        message = commitMessage
+                    }
+                    val commitId = inserter.insert(commit)
+                    inserter.flush()
+
+                    // HEAD stays attached to the branch, so moving the branch moves it too
+                    val refUpdate = repo.updateRef("refs/heads/$branch")
+                    refUpdate.setNewObjectId(commitId)
+                    refUpdate.setForceUpdate(true)
+                    val result = refUpdate.update()
+                    check(
+                        result == RefUpdate.Result.NEW
+                            || result == RefUpdate.Result.FORCED
+                            || result == RefUpdate.Result.FAST_FORWARD
+                            || result == RefUpdate.Result.NO_CHANGE
+                    ) { "Resetting the branch failed: $result" }
+                }
+
+                Unit
+            }
+        }
+
+    override suspend fun forcePush(
+        currentNotebookPath: String,
+        tokenOrPassword: String,
+        username: String?,
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        suspendRunCatching {
+            val localRepoDir = getLocalRepoDir(currentNotebookPath)
+
+            Git.open(localRepoDir).use { git ->
+                pushOrThrow(git, getCredentials(username, tokenOrPassword), force = true)
+            }
+
+            Unit
+        }
+    }
+
+    override suspend fun resetToRemote(
+        currentNotebookPath: String,
+        tokenOrPassword: String,
+        username: String?,
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        suspendRunCatching {
+            val localRepoDir = getLocalRepoDir(currentNotebookPath)
+
+            Git.open(localRepoDir).use { git ->
+                val credentials = getCredentials(username, tokenOrPassword)
+                val branch = git.repository.branch
+
+                git.fetch().setRemote(defaultRemoteName).setCredentialsProvider(credentials).call()
+
+                val remoteBranch = git.repository.findRef("refs/remotes/$defaultRemoteName/$branch")
+                    ?: throw IllegalStateException("The remote has no branch '$branch'.")
+
+                // moves the branch onto the remote commit and throws the local worktree state away
+                git.reset().setMode(ResetCommand.ResetType.HARD).setRef(remoteBranch.name).call()
+            }
+
+            Unit
+        }
+    }
+
+    override suspend fun getConflictVersions(
+        currentNotebookPath: String,
+        conflictedFilePath: String,
+    ): Result<Map<Int, ByteArray>> = withContext(Dispatchers.IO) {
+        suspendRunCatching {
+            val localRepoDir = getLocalRepoDir(currentNotebookPath)
+
+            Git.open(localRepoDir).use { git ->
+                val repo = git.repository
+                val dirCache = repo.readDirCache()
+
+                buildMap {
+                    for (i in 0 until dirCache.entryCount) {
+                        val entry = dirCache.getEntry(i)
+                        if (entry.pathString == conflictedFilePath && entry.stage in 1..3) {
+                            put(entry.stage, repo.open(entry.objectId).bytes)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    override suspend fun stageFile(
+        currentNotebookPath: String,
+        filePath: String,
+        content: ByteArray,
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        suspendRunCatching {
+            val localRepoDir = getLocalRepoDir(currentNotebookPath)
+
+            Git.open(localRepoDir).use { git ->
+                val file = File(localRepoDir, filePath)
+                file.parentFile?.mkdirs()
+                file.writeBytes(content)
+                git.add().addFilepattern(filePath).call()
+            }
+
+            Unit
+        }
+    }
+
+    override suspend fun setRepoIdentity(currentNotebookPath: String): Result<Unit> = withContext(Dispatchers.IO) {
+        suspendRunCatching {
+            val localRepoDir = getLocalRepoDir(currentNotebookPath)
+
+            Git.open(localRepoDir).use { git ->
+                val config = git.repository.config
+                config.setString("user", null, "name", VAULT_GIT_NAME)
+                config.setString("user", null, "email", VAULT_GIT_EMAIL)
+                config.save()
+            }
+
+            Unit
+        }
+    }
+
+    override suspend fun commitStaged(currentNotebookPath: String, commitMessage: String): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            suspendRunCatching {
+                val localRepoDir = getLocalRepoDir(currentNotebookPath)
+
+                Git.open(localRepoDir).use { git ->
+                    // during a merge JGit makes MERGE_HEAD the second parent and clears the merge state
+                    git.commit().setMessage(commitMessage).call()
+                }
+
+                Unit
+            }
+        }
 
     private val defaultRemoteName = "origin"
 

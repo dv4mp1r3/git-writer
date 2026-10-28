@@ -85,14 +85,14 @@ internal fun GitRepository.fetch(remote: String, credentials: GitCredentials): U
     withRemoteCallbacks(options.callbacks, credentials) { git_remote_fetch(remoteHandle, null, options.ptr, null) }
 }
 
-/** Uploads the current branch to the branch of the same name on [remote] (`git push`). */
-internal fun GitRepository.push(remote: String, credentials: GitCredentials): Unit = memScoped {
+/** Uploads the current branch to the branch of the same name on [remote] (`git push`, force overwrites the remote history). */
+internal fun GitRepository.push(remote: String, credentials: GitCredentials, force: Boolean = false): Unit = memScoped {
     val branch = currentBranch ?: throw GitException("HEAD is detached, there is no branch to push")
     val remoteHandle = create(::git_remote_free) { git_remote_lookup(it, handle, remote) }
     val options = alloc<git_push_options>()
     checkGit(git_push_options_init(options.ptr, GIT_PUSH_OPTIONS_VERSION.convert()))
     val refspecs = alloc<git_strarray> {
-        strings = allocArrayOf("refs/heads/$branch:refs/heads/$branch".cstr.ptr)
+        strings = allocArrayOf("${if (force) "+" else ""}refs/heads/$branch:refs/heads/$branch".cstr.ptr)
         count = 1u
     }
 

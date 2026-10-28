@@ -48,5 +48,47 @@ interface GitSyncRepository {
 
     fun updateSyncStatus(remoteUrl: String?, syncStatus: GitSyncStatus? = null): Result<Unit>
 
+    /**
+     * Replaces the whole branch history with one commit of the current working tree (`message`): the
+     * notes stay, the commits before it leave the branch. This is how the plaintext history disappears
+     * when encryption is turned on - the old objects only leave the server once it garbage-collects.
+     */
+    suspend fun resetHistoryToCurrentState(currentNotebookPath: String, commitMessage: String): Result<Unit>
+
+    /** Uploads the current branch even when it diverged from the remote (history was rewritten). */
+    suspend fun forcePush(
+        currentNotebookPath: String,
+        tokenOrPassword: String,
+        username: String? = null,
+    ): Result<Unit>
+
+    /** Fetches the remote and moves the current branch and the working tree onto its state, dropping the local history. */
+    suspend fun resetToRemote(
+        currentNotebookPath: String,
+        tokenOrPassword: String,
+        username: String? = null,
+    ): Result<Unit>
+
+    /**
+     * The versions of a conflicted file by index stage: 1 = common ancestor, 2 = local, 3 = remote.
+     * A stage is missing when that side has no version of the file (it was added or deleted).
+     */
+    suspend fun getConflictVersions(currentNotebookPath: String, conflictedFilePath: String): Result<Map<Int, ByteArray>>
+
+    /** Writes [content] to the file relative to the notebook and stages it (`git add`). */
+    suspend fun stageFile(currentNotebookPath: String, filePath: String, content: ByteArray): Result<Unit>
+
+    /** Sets the repo-local git identity to the generic one, so commits do not leak the machine's global git config. */
+    suspend fun setRepoIdentity(currentNotebookPath: String): Result<Unit>
+
+    /** Commits what is staged, completing a merge in progress (`git commit`). */
+    suspend fun commitStaged(currentNotebookPath: String, commitMessage: String): Result<Unit>
+
     val gitSyncStatus: Flow<GitSyncStatus>
 }
+
+/** The author name of commits in vault notebooks - the host must not learn who writes the notes. */
+const val VAULT_GIT_NAME = "Git Writer"
+
+/** The committer email of commits in vault notebooks, matching [VAULT_GIT_NAME]. */
+const val VAULT_GIT_EMAIL = "sync@git-writer.local"

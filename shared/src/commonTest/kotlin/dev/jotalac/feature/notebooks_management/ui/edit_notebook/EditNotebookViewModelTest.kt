@@ -4,8 +4,12 @@ import dev.jotalac.core.utils.SnackbarManager
 import dev.jotalac.core.utils.SnackbarText
 import dev.jotalac.feature.notebooks_management.domain.Notebook
 import dev.jotalac.feature.notebooks_management.ui.edit_notebook.EditNotebookViewModel.EditNotebookEvent
+import dev.jotalac.feature.vault.data.VaultController
+import dev.jotalac.feature.vault.data.VaultFileStore
+import dev.jotalac.testing.fakes.FakeGitSyncRepository
 import dev.jotalac.testing.fakes.FakeNotebookRepository
 import dev.jotalac.testing.fakes.FakeNotebookRepository.NotebookUpdate
+import dev.jotalac.testing.fakes.FakeNoteVault
 import dev.jotalac.testing.viewModelTest
 import git_writer.shared.generated.resources.Res
 import git_writer.shared.generated.resources.msg_notebook_updated
@@ -25,12 +29,17 @@ class EditNotebookViewModelTest {
 
     private val notebooks = FakeNotebookRepository()
     private val snackbar = SnackbarManager()
+    private val vault = FakeNoteVault()
+    private val gitSync = FakeGitSyncRepository()
 
     private val validUrl = "https://github.com/me/notes.git"
     private var dialogClosed = false
 
     /** The edit dialog opened for a notebook without a remote. */
-    private fun editDialog() = EditNotebookViewModel(notebooks, snackbar).apply {
+    private fun editDialog() = EditNotebookViewModel(
+        notebooks, snackbar, vault,
+        VaultController(gitSync, vault, VaultFileStore()),
+    ).apply {
         initWithNotebook(id = 3, name = "Work", remoteUrl = null, remoteUsername = null, remotePassword = null)
     }
 
@@ -148,7 +157,10 @@ class EditNotebookViewModelTest {
     @Test
     fun `clearing the remote saves the notebook without one`() = viewModelTest {
         notebooks.notebookResult = Result.success(Notebook(3, "Work", "/nb/Work", null, null, null))
-        val dialog = EditNotebookViewModel(notebooks, snackbar).apply {
+        val dialog = EditNotebookViewModel(
+            notebooks, snackbar, vault,
+            VaultController(gitSync, vault, VaultFileStore()),
+        ).apply {
             initWithNotebook(id = 3, name = "Work", remoteUrl = validUrl, remoteUsername = "me", remotePassword = "token")
         }
 

@@ -28,4 +28,10 @@ class JGitSyncRepositoryTest : GitSyncRepositoryContractTest() {
             git.commit().setMessage("not pushed").call()
         }
     }
+
+    override fun commitMessages(path: String): List<String> =
+        Git.open(File(path)).use { git -> git.log().call().map { it.fullMessage.trim() } }
+
+    override fun lastCommitAuthorName(path: String): String =
+        Git.open(File(path)).use { git -> git.log().call().first().authorIdent.name }
 }

@@ -16,8 +16,11 @@ import git2.git_index_entry
 import git2.git_index_has_conflicts
 import git2.git_index_remove_bypath
 import git2.git_index_write
+import git2.git_oid
+import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.CPointerVar
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.MemScope
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.pointed
@@ -57,6 +60,39 @@ internal fun GitRepository.conflictedFiles(): Set<String> = memScoped {
             add(entry.pointed.path?.toKString() ?: continue)
         }
     }
+}
+
+/**
+ * The versions of the conflicted [path] by index stage: 1 = common ancestor, 2 = local (ours), 3 = remote
+ * (theirs). A stage is missing when that side has no version of the file (it was added or deleted).
+ */
+internal fun GitRepository.conflictVersions(path: String): Map<Int, ByteArray> = memScoped {
+    val ancestor = alloc<CPointerVar<git_index_entry>>()
+    val ours = alloc<CPointerVar<git_index_entry>>()
+    val theirs = alloc<CPointerVar<git_index_entry>>()
+    checkGit(git_index_conflict_get(ancestor.ptr, ours.ptr, theirs.ptr, index(), path))
+
+    buildMap {
+        listOf(1 to ancestor.value, 2 to ours.value, 3 to theirs.value).forEach { (stage, entry) ->
+            if (entry != null) put(stage, blobContent(entry.pointed.id.ptr))
+        }
+    }
+}
+
+/**
+ * Stages the current content of [path] in the working tree, like `git add` - a conflict on the file
+ * counts as resolved that way.
+ */
+internal fun GitRepository.stagePath(path: String): Unit = memScoped {
+    val index = index()
+    checkGit(git_index_add_bypath(index, path))
+    checkGit(git_index_write(index))
+}
+
+/** The content of the blob [id] points at. */
+private fun MemScope.blobContent(id: CPointer<git_oid>): ByteArray {
+    val blob = create(::git_blob_free) { git_blob_lookup(it, handle, id) }
+    return git_blob_rawcontent(blob)?.readBytes(git_blob_rawsize(blob).toInt()) ?: ByteArray(0)
 }
 
 /**

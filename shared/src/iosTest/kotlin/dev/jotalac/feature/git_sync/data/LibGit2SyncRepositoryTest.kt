@@ -4,6 +4,8 @@ import dev.jotalac.feature.git_sync.data.libgit2.GitCredentials
 import dev.jotalac.feature.git_sync.data.libgit2.GitRepository
 import dev.jotalac.feature.git_sync.data.libgit2.addRemote
 import dev.jotalac.feature.git_sync.data.libgit2.commitAll
+import dev.jotalac.feature.git_sync.data.libgit2.commitMessages
+import dev.jotalac.feature.git_sync.data.libgit2.lastCommitAuthorName
 import dev.jotalac.feature.git_sync.data.libgit2.push
 import kotlinx.io.buffered
 import kotlinx.io.files.Path
@@ -31,4 +33,10 @@ class LibGit2SyncRepositoryTest : GitSyncRepositoryContractTest() {
     override fun commitWithoutPushing(path: String) {
         GitRepository.open(path).use { it.commitAll("not pushed") }
     }
+
+    override fun commitMessages(path: String): List<String> =
+        GitRepository.open(path).use { it.commitMessages() }
+
+    override fun lastCommitAuthorName(path: String): String =
+        GitRepository.open(path).use { it.lastCommitAuthorName() }
 }

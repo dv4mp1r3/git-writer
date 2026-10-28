@@ -41,7 +41,10 @@ actual val platformModule: Module = module {
         }
     }
 
-    single<GitSyncRepository> {
+    // the concrete type under a qualifier - the common module wraps it in the vault-aware decorator
+    single<GitSyncRepository>(gitSyncBase) {
         JGitSyncRepositoryImpl()
     }
+
+    single<dev.jotalac.feature.vault.domain.SecureKeyCache> { dev.jotalac.feature.vault.domain.SecureKeyStorage() }
 }

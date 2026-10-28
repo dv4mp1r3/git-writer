@@ -8,15 +8,21 @@ import dev.jotalac.feature.editor_sidebar.domain.FileNode
 import dev.jotalac.feature.editor_sidebar.domain.FlatFileNode
 import dev.jotalac.feature.git_sync.domain.GitSyncStatus
 import dev.jotalac.feature.notebooks_management.domain.Notebook
+import dev.jotalac.feature.pdf_export.PdfExportRequest
 import dev.jotalac.testing.fakes.FakeEditorRepository
 import dev.jotalac.testing.fakes.FakeGitSyncRepository
 import dev.jotalac.testing.fakes.FakeNotebookRepository
+import dev.jotalac.testing.fakes.FakeNoteVault
+import dev.jotalac.feature.vault.data.VaultController
+import dev.jotalac.feature.vault.data.VaultFileStore
 import dev.jotalac.testing.viewModelTest
 import git_writer.shared.generated.resources.Res
 import git_writer.shared.generated.resources.err_failed_add_note
 import git_writer.shared.generated.resources.err_failed_delete
+import git_writer.shared.generated.resources.err_failed_export_pdf
 import git_writer.shared.generated.resources.err_failed_move
 import git_writer.shared.generated.resources.err_failed_rename
+import git_writer.shared.generated.resources.msg_pdf_exported
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.first
@@ -50,6 +56,7 @@ class EditorSidebarViewModelTest {
     private val notebooks = FakeNotebookRepository()
     private val snackbar = SnackbarManager()
     private val gitSync = FakeGitSyncRepository()
+    private val vault = FakeNoteVault()
 
     private lateinit var notebookDir: Path
 
@@ -66,7 +73,10 @@ class EditorSidebarViewModelTest {
 
     private val viewModels = mutableListOf<EditorSidebarViewModel>()
 
-    private fun createViewModel() = EditorSidebarViewModel(notebooks, editor, snackbar, gitSync).also { viewModels += it }
+    private fun createViewModel() = EditorSidebarViewModel(
+        notebooks, editor, snackbar, gitSync, vault,
+        VaultController(gitSync, vault, VaultFileStore()),
+    ).also { viewModels += it }
 
     /**
      * [viewModelTest] that also stops the ViewModels before the test ends. Their tree refresh runs on the
@@ -381,6 +391,88 @@ class EditorSidebarViewModelTest {
             listOf<SnackbarText>(SnackbarText.message(Res.string.err_failed_add_note, "permission denied")),
             messages,
         )
+    }
+
+    // --- PDF export
+
+    @Test
+    fun `exporting a note hands its name and content to the export`() = sidebarTest {
+        val shopping = file("docs/shopping.md")
+        editor.readResult = Result.success("- milk\n- bread")
+        val viewModel = loadedViewModel()
+
+        viewModel.onAction(SidebarAction.ExportPdf(shopping))
+        advanceUntilIdle()
+
+        assertEquals(PdfExportRequest("shopping", "- milk\n- bread"), viewModel.uiState.value.pdfExport)
+    }
+
+    @Test
+    fun `another export while one is running is ignored`() = sidebarTest {
+        val viewModel = exportingViewModel()
+        val other = file("other.md")
+        editor.readResult = Result.success("other content")
+
+        viewModel.onAction(SidebarAction.ExportPdf(other))
+        advanceUntilIdle()
+
+        assertEquals("shopping", viewModel.uiState.value.pdfExport?.noteName)
+    }
+
+    @Test
+    fun `a finished export ends and says what the PDF was saved as`() = sidebarTest {
+        val viewModel = exportingViewModel()
+        val messages = collectSnackbars()
+
+        viewModel.onAction(SidebarAction.PdfExportFinished(Result.success("shopping.pdf")))
+
+        assertNull(viewModel.uiState.value.pdfExport)
+        assertEquals(listOf<SnackbarText>(SnackbarText.resource(Res.string.msg_pdf_exported, "shopping.pdf")), messages)
+    }
+
+    @Test
+    fun `a cancelled save dialog ends the export without a message`() = sidebarTest {
+        val viewModel = exportingViewModel()
+        val messages = collectSnackbars()
+
+        viewModel.onAction(SidebarAction.PdfExportFinished(Result.success(null)))
+
+        assertNull(viewModel.uiState.value.pdfExport)
+        assertTrue(messages.isEmpty())
+    }
+
+    @Test
+    fun `a failed export ends and shows why`() = sidebarTest {
+        val viewModel = exportingViewModel()
+        val messages = collectSnackbars()
+
+        viewModel.onAction(SidebarAction.PdfExportFinished(Result.failure(IllegalStateException("disk full"))))
+
+        assertNull(viewModel.uiState.value.pdfExport)
+        assertEquals(listOf<SnackbarText>(SnackbarText.message(Res.string.err_failed_export_pdf, "disk full")), messages)
+    }
+
+    @Test
+    fun `a note that cannot be read is not exported`() = sidebarTest {
+        val shopping = file("shopping.md")
+        editor.readResult = Result.failure(IllegalStateException("permission denied"))
+        val viewModel = loadedViewModel()
+        val messages = collectSnackbars()
+
+        viewModel.onAction(SidebarAction.ExportPdf(shopping))
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.pdfExport)
+        assertEquals(listOf<SnackbarText>(SnackbarText.message(Res.string.err_failed_export_pdf, "permission denied")), messages)
+    }
+
+    /** A ViewModel in the middle of exporting a note. */
+    private suspend fun TestScope.exportingViewModel(): EditorSidebarViewModel {
+        val shopping = file("shopping.md")
+        val viewModel = loadedViewModel()
+        viewModel.onAction(SidebarAction.ExportPdf(shopping))
+        advanceUntilIdle()
+        return viewModel
     }
 
     // --- moving and deleting

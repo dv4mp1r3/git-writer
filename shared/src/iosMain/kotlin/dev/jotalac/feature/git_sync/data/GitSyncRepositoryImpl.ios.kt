@@ -4,6 +4,7 @@ package dev.jotalac.feature.git_sync.data
 
 import dev.jotalac.core.utils.suspendRunCatching
 import dev.jotalac.feature.git_sync.data.libgit2.GitCredentials
+import dev.jotalac.feature.git_sync.data.libgit2.GitException
 import dev.jotalac.feature.git_sync.data.libgit2.GitRepository
 import dev.jotalac.feature.git_sync.data.libgit2.MergeResult
 import dev.jotalac.feature.git_sync.data.libgit2.addRemote
@@ -11,6 +12,7 @@ import dev.jotalac.feature.git_sync.data.libgit2.checkRemoteAccess
 import dev.jotalac.feature.git_sync.data.libgit2.clone
 import dev.jotalac.feature.git_sync.data.libgit2.commit
 import dev.jotalac.feature.git_sync.data.libgit2.commitAll
+import dev.jotalac.feature.git_sync.data.libgit2.conflictVersions
 import dev.jotalac.feature.git_sync.data.libgit2.conflictedFiles
 import dev.jotalac.feature.git_sync.data.libgit2.deleteRemote
 import dev.jotalac.feature.git_sync.data.libgit2.fetch
@@ -23,8 +25,11 @@ import dev.jotalac.feature.git_sync.data.libgit2.resetHard
 import dev.jotalac.feature.git_sync.data.libgit2.resolveConflict
 import dev.jotalac.feature.git_sync.data.libgit2.setRemoteUrl
 import dev.jotalac.feature.git_sync.data.libgit2.setUpstream
+import dev.jotalac.feature.git_sync.data.libgit2.stagePath
 import dev.jotalac.feature.git_sync.domain.GitSyncRepository
 import dev.jotalac.feature.git_sync.domain.GitSyncStatus
+import dev.jotalac.feature.git_sync.domain.VAULT_GIT_EMAIL
+import dev.jotalac.feature.git_sync.domain.VAULT_GIT_NAME
 import git2.git_libgit2_init
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.Dispatchers
@@ -33,6 +38,10 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.withContext
+import kotlinx.io.buffered
+import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
+import kotlinx.io.writeByteArray
 
 private const val DEFAULT_REMOTE = "origin"
 
@@ -154,6 +163,76 @@ class LibGit2SyncRepositoryImpl : GitSyncRepository {
         GitRepository.open(currentNotebookPath).use { repo ->
             // only during a merge - otherwise it would throw away notes that are not committed yet
             if (repo.isMerging) repo.resetHard()
+        }
+    }
+
+    override suspend fun resetHistoryToCurrentState(currentNotebookPath: String, commitMessage: String): Result<Unit> =
+        runGit {
+            GitRepository.open(currentNotebookPath).use { repo ->
+                val branch = repo.currentBranch ?: throw GitException("HEAD is detached, there is no branch to rewrite")
+                repo.stageEverything()
+                // a commit without parents on the branch: everything before it leaves the history
+                repo.commitOrphan(commitMessage, branch)
+            }
+        }
+
+    override suspend fun forcePush(
+        currentNotebookPath: String,
+        tokenOrPassword: String,
+        username: String?,
+    ): Result<Unit> = runGit {
+        GitRepository.open(currentNotebookPath).use { repo ->
+            repo.push(DEFAULT_REMOTE, GitCredentials(username, tokenOrPassword), force = true)
+        }
+    }
+
+    override suspend fun resetToRemote(
+        currentNotebookPath: String,
+        tokenOrPassword: String,
+        username: String?,
+    ): Result<Unit> = runGit {
+        GitRepository.open(currentNotebookPath).use { repo ->
+            val branch = repo.currentBranch ?: throw GitException("HEAD is detached, there is no branch to reset")
+            repo.fetch(DEFAULT_REMOTE, GitCredentials(username, tokenOrPassword))
+            // moves the branch onto the remote commit and throws the local worktree state away
+            repo.resetHard("refs/remotes/$DEFAULT_REMOTE/$branch")
+        }
+    }
+
+    override suspend fun getConflictVersions(
+        currentNotebookPath: String,
+        conflictedFilePath: String,
+    ): Result<Map<Int, ByteArray>> = runGit {
+        GitRepository.open(currentNotebookPath).use { repo ->
+            repo.conflictVersions(conflictedFilePath)
+        }
+    }
+
+    override suspend fun stageFile(
+        currentNotebookPath: String,
+        filePath: String,
+        content: ByteArray,
+    ): Result<Unit> = runGit {
+        GitRepository.open(currentNotebookPath).use { repo ->
+            val file = Path(repo.workdir, filePath)
+            file.parent?.let { SystemFileSystem.createDirectories(it) }
+            SystemFileSystem.sink(file).buffered().use { it.writeByteArray(content) }
+            // staging also resolves a conflict on the file, like `git add` does
+            repo.stagePath(filePath)
+        }
+    }
+
+    override suspend fun setRepoIdentity(currentNotebookPath: String): Result<Unit> = runGit {
+        GitRepository.open(currentNotebookPath).use { repo ->
+            repo.setConfig("user.name", VAULT_GIT_NAME)
+            repo.setConfig("user.email", VAULT_GIT_EMAIL)
+        }
+    }
+
+    override suspend fun commitStaged(currentNotebookPath: String, commitMessage: String): Result<Unit> = runGit {
+        GitRepository.open(currentNotebookPath).use { repo ->
+            // commit() makes MERGE_HEAD the second parent and clears the merge state
+            repo.commit(commitMessage)
         }
     }
 

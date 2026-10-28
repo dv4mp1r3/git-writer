@@ -7,6 +7,9 @@ import coil3.PlatformContext
 import coil3.compose.setSingletonImageLoaderFactory
 import coil3.map.Mapper
 import dev.jotalac.feature.notebooks_management.domain.NotebookRepository
+import dev.jotalac.feature.vault.data.VaultFileStore
+import dev.jotalac.feature.vault.data.VaultLayout
+import dev.jotalac.feature.vault.domain.NoteVault
 import io.github.vinceglb.filekit.PlatformFile
 import io.github.vinceglb.filekit.coil.PlatformFileFetcher
 import org.koin.compose.koinInject
@@ -14,24 +17,54 @@ import org.koin.compose.koinInject
 @Composable
 fun ConfigureAppImageLoader() {
     val notebookRepository = koinInject<NotebookRepository>()
+    val vault = koinInject<NoteVault>()
+    val fileStore = koinInject<VaultFileStore>()
     val activeNotebookState = notebookRepository.activeNotebookState.collectAsState(initial = null)
 
     setSingletonImageLoaderFactory { context ->
-        getAsyncImageLoader(context) { activeNotebookState.value?.directoryPath }
+        getAsyncImageLoader(
+            context,
+            getActiveNotebookDirectory = { activeNotebookState.value?.directoryPath },
+            vault = vault,
+            fileStore = fileStore,
+        )
     }
 }
 
 fun getAsyncImageLoader(
     context: PlatformContext,
-    getActiveNotebookDirectory: () -> String? = { null }
+    getActiveNotebookDirectory: () -> String? = { null },
+    vault: NoteVault? = null,
+    fileStore: VaultFileStore? = null,
 ) = ImageLoader.Builder(context)
     .components {
+        // the vault mapper is registered first: it claims unlocked vault paths, everything else
+        // falls through to the plain file mapper below
+        if (vault != null && fileStore != null) {
+            add(Mapper<String, VaultImageModel> { data, _ ->
+                resolveVaultImagePath(data, vault, getActiveNotebookDirectory())
+            })
+            add(VaultImageFetcher.Factory(vault, fileStore))
+        }
         add(Mapper<String, PlatformFile> { data, _ ->
             resolveImagePath(data, getActiveNotebookDirectory())?.let { PlatformFile(it) }
         })
         add(PlatformFileFetcher.Factory())
     }
     .build()
+
+/** The vault image model for a note image link, null for plain/web/out-of-notebook paths. */
+internal fun resolveVaultImagePath(data: String, vault: NoteVault, notebookRoot: String?): VaultImageModel? {
+    if (notebookRoot == null) return null
+    if (vault.sessionForPath(notebookRoot) == null) return null // not an unlocked vault notebook
+
+    val absolutePath = resolveImagePath(data, notebookRoot) ?: return null
+    return try {
+        VaultImageModel(notebookRoot, VaultLayout.relPathOf(notebookRoot, absolutePath))
+    } catch (e: IllegalArgumentException) {
+        null // the link points outside the notebook - nothing to decrypt
+    }
+}
 
 /**
  * The file an image link in a note points to, null for web images (Coil's HTTP fetcher loads those).
