@@ -244,4 +244,21 @@
     <string name="msg_vault_key_forgotten">Schlüssel wurde von diesem Gerät entfernt</string>
     <string name="msg_vault_password_changed">Passwort geändert</string>
     <string name="err_vault_failed">Verschlüsselungsvorgang fehlgeschlagen</string>
+    <string name="vault_keystore_export_button">Schlüsselspeicher exportieren</string>
+    <string name="vault_keystore_import_button">Schlüsselspeicher importieren</string>
+    <string name="vault_history_cleanup_button">Historie bereinigen</string>
+    <string name="vault_locked_no_keystore_description">Dieses Notizbuch ist verschlüsselt und dieses Gerät hat keinen Schlüssel dafür. Geben Sie den Wiederherstellungsschlüssel ein oder importieren Sie die Schlüsselspeicher-Datei von einem Gerät, auf dem das Notizbuch entsperrt ist.</string>
+    <string name="vault_change_password_local_hint">Das Passwort schützt die Kopie des Schlüsselspeichers auf diesem Gerät. Andere Geräte behalten ihre eigenen Passwörter.</string>
+    <string name="vault_cleanup_title">Git-Historie bereinigen?</string>
+    <string name="vault_cleanup_description">Der Schlüsselspeicher wird nicht mehr verfolgt, steckt aber noch in den alten Commits dieses Notizbuchs. Die Bereinigung ersetzt die gesamte Historie durch einen frischen Commit und überträgt ihn mit Force-Push.</string>
+    <string name="vault_cleanup_warning_history">Frühere Versionen der Notizen können danach nicht wiederhergestellt werden. Andere Geräte laden die neue Historie bei der nächsten Synchronisierung herunter.</string>
+    <string name="vault_cleanup_confirm">Historie bereinigen</string>
+    <string name="vault_cleanup_later">Nicht jetzt</string>
+    <string name="msg_keystore_exported">Schlüsselspeicher-Datei gespeichert</string>
+    <string name="msg_keystore_imported">Schlüsselspeicher importiert</string>
+    <string name="msg_vault_history_cleaned">Historie bereinigt</string>
+    <string name="err_keystore_import_invalid">Diese Datei ist kein gültiger Schlüsselspeicher</string>
+    <string name="err_keystore_import_conflict">Dieses Notizbuch verwendet bereits einen Schlüsselspeicher für einen anderen Schlüssel</string>
+    <string name="err_keystore_export_failed">Schlüsselspeicher-Datei konnte nicht gespeichert werden</string>
+    <string name="err_vault_key_mismatch">Dieser Schlüssel öffnet dieses Notizbuch nicht</string>
 </resources>

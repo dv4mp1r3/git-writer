@@ -2,6 +2,7 @@
 
 package dev.jotalac.feature.git_sync.data.libgit2
 
+import git2.GIT_ENOTFOUND
 import git2.GIT_INDEX_ADD_DEFAULT
 import git2.GIT_RESET_HARD
 import git2.GIT_STATUS_OPTIONS_VERSION
@@ -15,6 +16,7 @@ import git2.git_commit_lookup
 import git2.git_commit_message
 import git2.git_commit_author
 import git2.git_index_add_all
+import git2.git_index_remove_bypath
 import git2.git_index_update_all
 import git2.git_index_write
 import git2.git_index_write_tree
@@ -64,6 +66,19 @@ internal fun GitRepository.stageEverything(): Unit = memScoped {
     checkGit(git_index_add_all(index, null, GIT_INDEX_ADD_DEFAULT, null, null))
     checkGit(git_index_update_all(index, null, null, null))
     checkGit(git_index_write(index))
+}
+
+/**
+ * Removes [path] from the index while keeping the working-tree file (`git rm --cached`).
+ * False when the path was not tracked.
+ */
+internal fun GitRepository.untrackPath(path: String): Boolean = memScoped {
+    val index = index()
+    val result = git_index_remove_bypath(index, path)
+    if (result == GIT_ENOTFOUND) return@memScoped false
+    checkGit(result)
+    checkGit(git_index_write(index))
+    true
 }
 
 /** Commits everything that changed in the working tree (`git add -A` and `git commit`). False when nothing did. */

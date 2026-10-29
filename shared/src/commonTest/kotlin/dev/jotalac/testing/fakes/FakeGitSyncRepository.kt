@@ -24,6 +24,10 @@ class FakeGitSyncRepository : GitSyncRepository {
     var stageFileResult: Result<Unit> = Result.success(Unit)
     var setRepoIdentityResult: Result<Unit> = Result.success(Unit)
     var commitStagedResult: Result<Unit> = Result.success(Unit)
+    /** Failure injection for [untrackFile]; the boolean is derived from [trackedPaths]. */
+    var untrackFileResult: Result<Unit> = Result.success(Unit)
+    /** Paths [untrackFile] reports as tracked (a flat set - tests use one notebook at a time). */
+    var trackedPaths: Set<String> = emptySet()
     var conflictVersions: Map<Int, ByteArray> = emptyMap()
 
     val initializedPaths = mutableListOf<String>()
@@ -42,6 +46,8 @@ class FakeGitSyncRepository : GitSyncRepository {
     val identitiesSet = mutableListOf<String>()
     /** notebook path to the commit message of every commit of staged changes */
     val committedStaged = mutableListOf<Pair<String, String>>()
+    /** notebook path to the relative path of every untrack call */
+    val untrackedFiles = mutableListOf<Pair<String, String>>()
     /** remote url of every updateSyncStatus call */
     val syncStatusRemoteUrls = mutableListOf<String?>()
 
@@ -166,6 +172,14 @@ class FakeGitSyncRepository : GitSyncRepository {
     ): Result<Unit> {
         stagedFiles += Triple(currentNotebookPath, filePath, content)
         return stageFileResult
+    }
+
+    override suspend fun untrackFile(currentNotebookPath: String, relativePath: String): Result<Boolean> {
+        untrackFileResult.getOrThrow()
+        untrackedFiles += currentNotebookPath to relativePath
+        val wasTracked = relativePath in trackedPaths
+        trackedPaths = trackedPaths - relativePath
+        return Result.success(wasTracked)
     }
 
     override suspend fun setRepoIdentity(currentNotebookPath: String): Result<Unit> {

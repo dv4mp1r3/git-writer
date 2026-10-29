@@ -16,6 +16,8 @@ import dev.jotalac.core.ui.components.AlertDialogTitleWithIcon
 import dev.jotalac.feature.notebooks_management.domain.Notebook
 import dev.jotalac.feature.notebooks_management.ui.components.SubmittableTextField
 import dev.jotalac.feature.vault.domain.VaultState
+import dev.jotalac.feature.vault.ui.VaultKeystoreExportDialog
+import dev.jotalac.feature.vault.ui.VaultKeystoreImportDialog
 import git_writer.shared.generated.resources.*
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -198,11 +200,24 @@ fun EditNotebookDialog(
 
                     is VaultState.Unlocked -> {
                         VaultStatusText(Res.string.vault_status_unlocked)
-                        VaultSectionButton(stringResource(Res.string.vault_change_password_button)) {
-                            viewModel.onEvent(EditNotebookViewModel.EditNotebookEvent.ShowVaultDialog(VaultDialog.ChangePassword))
+                        if (vaultState.hasLocalKeystore) {
+                            // the passphrase re-wraps the local keystore copy only - without one there is nothing to change
+                            VaultSectionButton(stringResource(Res.string.vault_change_password_button)) {
+                                viewModel.onEvent(EditNotebookViewModel.EditNotebookEvent.ShowVaultDialog(VaultDialog.ChangePassword))
+                            }
+                            VaultSectionButton(stringResource(Res.string.vault_keystore_export_button)) {
+                                viewModel.onEvent(EditNotebookViewModel.EditNotebookEvent.ShowVaultDialog(VaultDialog.KeystoreExport))
+                            }
+                        } else {
+                            VaultSectionButton(stringResource(Res.string.vault_keystore_import_button)) {
+                                viewModel.onEvent(EditNotebookViewModel.EditNotebookEvent.ShowVaultDialog(VaultDialog.KeystoreImport))
+                            }
                         }
                         VaultSectionButton(stringResource(Res.string.vault_show_recovery_key_button)) {
                             viewModel.onEvent(EditNotebookViewModel.EditNotebookEvent.ShowVaultDialog(VaultDialog.RecoveryKeyPrompt))
+                        }
+                        VaultSectionButton(stringResource(Res.string.vault_history_cleanup_button)) {
+                            viewModel.onEvent(EditNotebookViewModel.EditNotebookEvent.VaultHistoryCleanup)
                         }
                         VaultSectionButton(stringResource(Res.string.vault_lock_button)) {
                             viewModel.onEvent(EditNotebookViewModel.EditNotebookEvent.VaultLock)
@@ -218,10 +233,15 @@ fun EditNotebookDialog(
                         }
                     }
 
-                    VaultState.Locked -> {
+                    is VaultState.Locked -> {
                         VaultStatusText(Res.string.vault_status_locked)
                         VaultSectionButton(stringResource(Res.string.vault_unlock_button)) {
                             viewModel.onEvent(EditNotebookViewModel.EditNotebookEvent.ShowVaultDialog(VaultDialog.Unlock))
+                        }
+                        if (!vaultState.hasLocalKeystore) {
+                            VaultSectionButton(stringResource(Res.string.vault_keystore_import_button)) {
+                                viewModel.onEvent(EditNotebookViewModel.EditNotebookEvent.ShowVaultDialog(VaultDialog.KeystoreImport))
+                            }
                         }
                     }
                 }
@@ -271,6 +291,18 @@ fun EditNotebookDialog(
             },
             busy = state.vaultBusy,
             error = state.vaultError,
+            // without a local keystore the passphrase has nothing to open - the recovery key is the way in
+            allowPassword = (state.vaultState as? VaultState.Locked)?.hasLocalKeystore ?: true,
+        )
+
+        VaultDialog.KeystoreImport -> VaultKeystoreImportDialog(
+            notebook = notebook,
+            onFinished = { viewModel.onEvent(EditNotebookViewModel.EditNotebookEvent.VaultKeystoreImportFinished(it)) },
+        )
+
+        VaultDialog.KeystoreExport -> VaultKeystoreExportDialog(
+            notebook = notebook,
+            onFinished = { viewModel.onEvent(EditNotebookViewModel.EditNotebookEvent.VaultKeystoreExportFinished(it)) },
         )
 
         VaultDialog.Disable -> VaultDisableDialog(

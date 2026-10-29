@@ -8,6 +8,8 @@ import dev.jotalac.feature.vault.crypto.OpenedVault
 import dev.jotalac.feature.vault.crypto.RecoveryKeyCodec
 import dev.jotalac.feature.vault.crypto.UnlockedVault
 import dev.jotalac.feature.vault.crypto.VaultFileCodec
+import dev.jotalac.feature.vault.crypto.VaultFormatException
+import dev.jotalac.feature.vault.crypto.VaultKeystoreConflictException
 import dev.jotalac.feature.vault.crypto.VaultKeystore
 import dev.jotalac.feature.vault.crypto.VaultKeys
 import dev.jotalac.feature.vault.crypto.Hex
@@ -40,7 +42,8 @@ import kotlinx.io.writeString
 /**
  * Tracks the vault state of every notebook, keeps the unlocked sessions in memory and builds
  * the encrypted file-tree listing. Notebook folders are re-scanned whenever the notebook list
- * changes (the keystore may also arrive through a git pull from another device).
+ * changes (encrypted files may arrive through a git pull; the keystore itself is device-local
+ * and never travels - the key id is read from the `.gwv` headers instead).
  */
 class VaultManagerImpl(
     /**
@@ -80,9 +83,14 @@ class VaultManagerImpl(
     }
 
     override fun stateOf(notebook: Notebook): VaultState {
-        // unknown notebook: a quick on-disk check is enough to tell Off from Locked
         entries.value[notebook.id]?.let { return it.state }
-        return if (VaultLayout.keystoreExists(notebook.directoryPath)) VaultState.Locked else VaultState.Off
+        // unknown notebook: quick on-disk checks are enough to tell Off from Locked (the key id
+        // of a keystore-less vault comes from the first `.gwv` header)
+        if (VaultLayout.keystoreExists(notebook.directoryPath)) return VaultState.Locked(null, hasLocalKeystore = true)
+        if (fileStore.firstKeyIdHexBlocking(notebook.directoryPath) != null) {
+            return VaultState.Locked(null, hasLocalKeystore = false)
+        }
+        return VaultState.Off
     }
 
     override suspend fun refreshStates() {
@@ -97,39 +105,53 @@ class VaultManagerImpl(
     }
 
     private suspend fun buildEntry(notebook: Notebook): Entry = withContext(ioDispatcher) {
-        val root = Path(notebook.directoryPath)
-        if (!VaultLayout.keystoreExists(notebook.directoryPath)) {
-            return@withContext Entry(notebook, VaultState.Off, null)
-        }
         val keystore = readKeystore(notebook)
-            ?: return@withContext Entry(notebook, VaultState.Locked, null) // present but unreadable
+        if (keystore == null && !VaultLayout.keystoreExists(notebook.directoryPath)) {
+            // no keystore on this device: the vault may still exist - its key id travels in the
+            // `.gwv` headers; with neither of them present the notebook is simply plain
+            val keyIdHex = fileStore.firstKeyIdHex(notebook.directoryPath)
+                ?: return@withContext Entry(notebook, VaultState.Off, null)
+            entries.value[notebook.id]?.session
+                ?.takeIf { Hex.encode(it.vault.keyId) == keyIdHex }
+                ?.let {
+                    return@withContext Entry(notebook, VaultState.Unlocked(keyIdHex, hasLocalKeystore = false), OpenedVault(it.vault))
+                }
+            return@withContext cachedEntry(notebook, keyIdHex, keystore = null)
+                ?: Entry(notebook, VaultState.Locked(keyIdHex, hasLocalKeystore = false), null)
+        }
+        if (keystore == null) {
+            return@withContext Entry(notebook, VaultState.Locked(null, hasLocalKeystore = true), null) // present but unreadable
+        }
         val keyIdHex = keystore.keystore.keyIdHex
 
         // an existing session survives (its master key is independent of the keystore wrapping)
         entries.value[notebook.id]?.session
             ?.takeIf { Hex.encode(it.vault.keyId) == keyIdHex }
             ?.let {
-                return@withContext Entry(notebook, VaultState.Unlocked(keyIdHex), OpenedVault(keystore.json, keystore.keystore, it.vault))
+                return@withContext Entry(notebook, VaultState.Unlocked(keyIdHex, hasLocalKeystore = true), OpenedVault(keystore.json, keystore.keystore, it.vault))
             }
 
         // try the device key cache (auto-unlock)
-        val cached = secureKeyStorage.get(keyIdHex)
-        if (cached != null) {
-            try {
-                val vault = UnlockedVault(keystore.keystore.keyIdHex.let(Hex::decode), VaultKeys.fromMasterKey(cached))
-                val opened = OpenedVault(keystore.json, keystore.keystore, vault)
-                return@withContext Entry(notebook, VaultState.Unlocked(keyIdHex), opened)
-            } catch (e: Exception) {
-                if (e is CancellationException) throw e
-                // cached bytes do not fit this keystore - ignore them
-            }
-        }
-        Entry(notebook, VaultState.Locked, null)
+        cachedEntry(notebook, keyIdHex, keystore)
+            ?: Entry(notebook, VaultState.Locked(keyIdHex, hasLocalKeystore = true), null)
     }
 
-    private fun setSession(notebook: Notebook, opened: OpenedVault) {
+    /** Auto-unlock through the device key cache; null when nothing usable is cached. */
+    private suspend fun cachedEntry(notebook: Notebook, keyIdHex: String, keystore: KeystoreOnDisk?): Entry? {
+        val cached = secureKeyStorage.get(keyIdHex) ?: return null
+        return try {
+            val vault = UnlockedVault(Hex.decode(keyIdHex), VaultKeys.fromMasterKey(cached))
+            Entry(notebook, VaultState.Unlocked(keyIdHex, hasLocalKeystore = keystore != null), OpenedVault(keystore?.json, keystore?.keystore, vault))
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            null // cached bytes do not fit this key id - ignore them
+        }
+    }
+
+    private suspend fun setSession(notebook: Notebook, opened: OpenedVault) = withContext(ioDispatcher) {
+        val hasKeystore = opened.keystoreJson != null || VaultLayout.keystoreExists(notebook.directoryPath)
         entries.update { current ->
-            current + (notebook.id to Entry(notebook, VaultState.Unlocked(Hex.encode(opened.vault.keyId)), opened))
+            current + (notebook.id to Entry(notebook, VaultState.Unlocked(Hex.encode(opened.vault.keyId), hasKeystore), opened))
         }
     }
 
@@ -144,24 +166,65 @@ class VaultManagerImpl(
 
     override suspend fun unlockWithRecoveryKey(notebook: Notebook, recoveryKey: String): Result<Unit> = withContext(ioDispatcher) {
         runCatching {
-            val keystore = readKeystore(notebook) ?: throw VaultLockedException("No keystore in '${notebook.name}'")
-            val opened = KeystoreCodec.unlockWithRecoveryKey(keystore.json, recoveryKey)
-            secureKeyStorage.store(Hex.encode(opened.vault.keyId), opened.vault.keys.masterKey)
-            setSession(notebook, opened)
+            val decoded = RecoveryKeyCodec.decode(recoveryKey)
+            val keystore = readKeystore(notebook)
+            // the key id names the vault: a GW2 key carries it, a legacy GW1 key needs the
+            // local keystore or the first `.gwv` header
+            val keyIdHex = decoded.keyIdHex
+                ?: keystore?.keystore?.keyIdHex
+                ?: fileStore.firstKeyIdHex(notebook.directoryPath)
+                ?: throw VaultFormatException("The legacy recovery key needs the keystore or at least one encrypted note")
+            val vault = UnlockedVault(Hex.decode(keyIdHex), VaultKeys.fromMasterKey(decoded.masterKey))
+            // without a keystore the key is proven by decrypting one file; with no files at all
+            // a GW2 key is trusted as-is (it names this vault and there is nothing to disprove it)
+            if (keystore == null && fileStore.firstKeyIdHex(notebook.directoryPath) != null) {
+                verifyMasterKey(notebook, vault)
+            }
+            secureKeyStorage.store(keyIdHex, decoded.masterKey)
+            setSession(notebook, OpenedVault(vault))
         }
+    }
+
+    /**
+     * Trial-decrypts the first `.gwv` file to prove that [vault] really opens this notebook -
+     * used when the recovery key does not go through the keystore (which would check it).
+     * @throws VaultFormatException when the key id or the key do not fit the notebook's files
+     */
+    private suspend fun verifyMasterKey(notebook: Notebook, vault: UnlockedVault) = withContext(ioDispatcher) {
+        val candidate = SystemFileSystem.list(Path(notebook.directoryPath))
+            .filter { it.name.endsWith(VaultLayout.ENCRYPTED_EXTENSION) }
+            .firstOrNull() ?: throw VaultFormatException("No encrypted notes to verify the recovery key against")
+        try {
+            val encoded = SystemFileSystem.source(candidate).buffered().use { it.readByteArray() }
+            VaultFileCodec.decode(encoded, vault, candidate.name.removeSuffix(VaultLayout.ENCRYPTED_EXTENSION))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            throw VaultFormatException("The recovery key does not open this vault", e)
+        }
+        Unit
     }
 
     override suspend fun lock(notebook: Notebook) {
         entries.update { current ->
             val entry = current[notebook.id] ?: return@update current
-            if (entry.state is VaultState.Off) current
-            else current + (notebook.id to Entry(notebook, VaultState.Locked, null))
+            if (entry.state is VaultState.Off) return@update current
+            // locking only drops the in-memory session - key id and keystore flag survive
+            val keyIdHex = (entry.state as? VaultState.Unlocked)?.keyIdHex
+                ?: (entry.state as? VaultState.Locked)?.keyIdHex
+                ?: entry.session?.let { Hex.encode(it.vault.keyId) }
+            val hasKeystore = (entry.state as? VaultState.Unlocked)?.hasLocalKeystore
+                ?: (entry.state as? VaultState.Locked)?.hasLocalKeystore
+                ?: false
+            current + (notebook.id to Entry(notebook, VaultState.Locked(keyIdHex, hasKeystore), null))
         }
     }
 
     override suspend fun forgetKeyOnDevice(notebook: Notebook) {
         lock(notebook)
-        readKeystore(notebook)?.let { secureKeyStorage.remove(it.keystore.keyIdHex) }
+        val keyIdHex = (stateOf(notebook) as? VaultState.Locked)?.keyIdHex
+            ?: readKeystore(notebook)?.keystore?.keyIdHex
+        keyIdHex?.let { secureKeyStorage.remove(it) }
     }
 
     override suspend fun createVault(notebook: Notebook, passphrase: String): Result<Unit> = withContext(ioDispatcher) {
@@ -169,7 +232,8 @@ class VaultManagerImpl(
             val opened = KeystoreCodec.createVault(passphrase)
             val vaultDir = Path(Path(notebook.directoryPath), VaultLayout.KEYSTORE_DIR)
             SystemFileSystem.createDirectories(vaultDir)
-            writeKeystore(notebook.directoryPath, opened.keystoreJson)
+            writeKeystore(notebook.directoryPath, requireNotNull(opened.keystoreJson))
+            ensureKeystoreIgnored(notebook.directoryPath)
             secureKeyStorage.store(Hex.encode(opened.vault.keyId), opened.vault.keys.masterKey)
             setSession(notebook, opened)
         }
@@ -186,17 +250,44 @@ class VaultManagerImpl(
         }
     }
 
+    override suspend fun importKeystore(notebook: Notebook, keystoreJson: String): Result<Unit> = withContext(ioDispatcher) {
+        runCatching {
+            val parsed = KeystoreCodec.parseKeystore(keystoreJson)
+            if (parsed.version != VaultKeystore.FORMAT_VERSION) {
+                throw VaultFormatException("Unsupported keystore version: ${parsed.version}")
+            }
+            readKeystore(notebook)?.let { existing ->
+                if (existing.keystore.keyIdHex != parsed.keyIdHex) {
+                    throw VaultKeystoreConflictException()
+                }
+            }
+            val vaultDir = Path(Path(notebook.directoryPath), VaultLayout.KEYSTORE_DIR)
+            SystemFileSystem.createDirectories(vaultDir)
+            writeKeystore(notebook.directoryPath, keystoreJson)
+            ensureKeystoreIgnored(notebook.directoryPath)
+            refreshStates()
+        }
+    }
+
+    override suspend fun localKeystoreJson(notebook: Notebook): Result<String?> = withContext(ioDispatcher) {
+        runCatching {
+            val path = VaultLayout.keystorePath(Path(notebook.directoryPath))
+            if (!SystemFileSystem.exists(path)) return@runCatching null
+            SystemFileSystem.source(path).buffered().use { it.readByteArray() }.decodeToString()
+        }
+    }
+
     override suspend fun exportRecoveryKey(notebook: Notebook, currentPassphrase: String): Result<String> = withContext(ioDispatcher) {
         runCatching {
             val keystore = readKeystore(notebook) ?: throw VaultLockedException("No keystore in '${notebook.name}'")
             val opened = KeystoreCodec.unlock(keystore.json, currentPassphrase)
-            RecoveryKeyCodec.encode(opened.vault.keys.masterKey)
+            RecoveryKeyCodec.encode(opened.vault.keyId, opened.vault.keys.masterKey)
         }
     }
 
     override fun recoveryKeyOf(notebook: Notebook): String? {
         val session = entries.value[notebook.id]?.session ?: return null
-        return RecoveryKeyCodec.encode(session.vault.keys.masterKey)
+        return RecoveryKeyCodec.encode(session.vault.keyId, session.vault.keys.masterKey)
     }
 
     override fun sessionForPath(directoryPath: String): OpenedVault? =

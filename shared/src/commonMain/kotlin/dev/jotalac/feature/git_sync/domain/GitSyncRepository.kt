@@ -78,6 +78,14 @@ interface GitSyncRepository {
     /** Writes [content] to the file relative to the notebook and stages it (`git add`). */
     suspend fun stageFile(currentNotebookPath: String, filePath: String, content: ByteArray): Result<Unit>
 
+    /**
+     * Stops tracking [relativePath] while keeping the working-tree file (`git rm --cached`) and
+     * stages the removal, so the next commit records it. This is how the vault keystore leaves
+     * the repository without disappearing from the device it lives on.
+     * @return true when the file was tracked and is now staged for removal.
+     */
+    suspend fun untrackFile(currentNotebookPath: String, relativePath: String): Result<Boolean>
+
     /** Sets the repo-local git identity to the generic one, so commits do not leak the machine's global git config. */
     suspend fun setRepoIdentity(currentNotebookPath: String): Result<Unit>
 

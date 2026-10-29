@@ -24,7 +24,16 @@ import git_writer.shared.generated.resources.msg_vault_key_forgotten
 import git_writer.shared.generated.resources.msg_vault_locked
 import git_writer.shared.generated.resources.msg_vault_password_changed
 import git_writer.shared.generated.resources.msg_vault_unlocked
+import git_writer.shared.generated.resources.msg_keystore_exported
+import git_writer.shared.generated.resources.msg_keystore_imported
+import git_writer.shared.generated.resources.msg_vault_history_cleaned
+import git_writer.shared.generated.resources.err_keystore_export_failed
+import git_writer.shared.generated.resources.err_keystore_import_conflict
+import git_writer.shared.generated.resources.err_keystore_import_invalid
+import git_writer.shared.generated.resources.err_vault_key_mismatch
 import git_writer.shared.generated.resources.vault_unlock_wrong
+import dev.jotalac.feature.vault.crypto.VaultFormatException
+import dev.jotalac.feature.vault.crypto.VaultKeystoreConflictException
 import kotlinx.coroutines.CancellationException
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.getString
@@ -37,6 +46,8 @@ sealed interface VaultDialog {
     data object ChangePassword : VaultDialog
     data object RecoveryKeyPrompt : VaultDialog
     data class RecoveryKey(val key: String) : VaultDialog
+    data object KeystoreImport : VaultDialog
+    data object KeystoreExport : VaultDialog
 }
 
 data class EditNotebookState(
@@ -146,6 +157,11 @@ class EditNotebookViewModel(
                 vault.changePassphrase(it, event.currentPassphrase, event.newPassphrase)
             }
             is EditNotebookEvent.VaultRecoveryKeyConfirmed -> exportRecoveryKey(event.passphrase)
+            is EditNotebookEvent.VaultKeystoreExportFinished -> finishKeystoreExport(event.result)
+            is EditNotebookEvent.VaultKeystoreImportFinished -> finishKeystoreImport(event.result)
+            EditNotebookEvent.VaultHistoryCleanup -> runVaultOperation(Res.string.msg_vault_history_cleaned) {
+                vaultController.purgeVaultHistory(it)
+            }
             EditNotebookEvent.VaultLock -> runVaultOperation(Res.string.msg_vault_locked) {
                 vault.lock(it)
                 Result.success(Unit)
@@ -192,8 +208,44 @@ class EditNotebookViewModel(
                 snackbarManager.showMessage(SnackbarText.resource(Res.string.msg_vault_unlocked))
             }.onFailure { error ->
                 if (error is CancellationException) throw error
-                _uiState.update { it.copy(vaultBusy = false, vaultError = getString(Res.string.vault_unlock_wrong)) }
+                // a key that belongs to another vault says so - everything else reads as a wrong input
+                _uiState.update {
+                    it.copy(
+                        vaultBusy = false,
+                        vaultError = if (error is VaultFormatException) {
+                            getString(Res.string.err_vault_key_mismatch)
+                        } else {
+                            getString(Res.string.vault_unlock_wrong)
+                        }
+                    )
+                }
             }
+        }
+    }
+
+    /** The keystore file has been written - close the dialog and report through a snackbar. */
+    private fun finishKeystoreExport(result: Result<String?>) {
+        _uiState.update { it.copy(vaultDialog = null) }
+        result
+            .onSuccess { fileName ->
+                // null - the save dialog was cancelled, nothing to say
+                fileName ?: return@onSuccess
+                snackbarManager.showMessage(SnackbarText.resource(Res.string.msg_keystore_exported))
+            }
+            .onFailure {
+                snackbarManager.showMessage(SnackbarText.message(Res.string.err_keystore_export_failed, it.message))
+            }
+    }
+
+    /** The keystore file picked in the dialog: installed or reported through a snackbar. */
+    private fun finishKeystoreImport(result: Result<Unit>?) {
+        _uiState.update { it.copy(vaultDialog = null) }
+        when {
+            result == null -> {} // the picker was cancelled, nothing to say
+            result.isSuccess -> snackbarManager.showMessage(SnackbarText.resource(Res.string.msg_keystore_imported))
+            result.exceptionOrNull() is VaultKeystoreConflictException ->
+                snackbarManager.showMessage(SnackbarText.resource(Res.string.err_keystore_import_conflict))
+            else -> snackbarManager.showMessage(SnackbarText.message(Res.string.err_keystore_import_invalid, result.exceptionOrNull()?.message))
         }
     }
 
@@ -287,6 +339,11 @@ class EditNotebookViewModel(
         data object VaultDisableConfirmed : EditNotebookEvent
         data class VaultChangePasswordConfirmed(val currentPassphrase: String, val newPassphrase: String) : EditNotebookEvent
         data class VaultRecoveryKeyConfirmed(val passphrase: String) : EditNotebookEvent
+        // the saved file's name, null when the save dialog was cancelled
+        data class VaultKeystoreExportFinished(val result: Result<String?>) : EditNotebookEvent
+        // null - the file picker was cancelled
+        data class VaultKeystoreImportFinished(val result: Result<Unit>?) : EditNotebookEvent
+        data object VaultHistoryCleanup : EditNotebookEvent
         data object VaultLock : EditNotebookEvent
         data object VaultForgetKey : EditNotebookEvent
     }
