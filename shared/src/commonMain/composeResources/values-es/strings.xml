@@ -243,4 +243,21 @@
     <string name="msg_vault_key_forgotten">Clave eliminada de este dispositivo</string>
     <string name="msg_vault_password_changed">Contraseña cambiada</string>
     <string name="err_vault_failed">Error en la operación de cifrado</string>
+    <string name="vault_keystore_export_button">Exportar archivo de almacén de claves</string>
+    <string name="vault_keystore_import_button">Importar archivo de almacén de claves</string>
+    <string name="vault_history_cleanup_button">Limpiar el historial</string>
+    <string name="vault_locked_no_keystore_description">Este cuaderno está cifrado y este dispositivo no tiene su clave. Introduce la clave de recuperación o importa el archivo de almacén de claves guardado desde un dispositivo donde el cuaderno esté desbloqueado.</string>
+    <string name="vault_change_password_local_hint">La contraseña protege la copia del almacén de claves en este dispositivo. Otros dispositivos conservan sus propias contraseñas.</string>
+    <string name="vault_cleanup_title">¿Limpiar el historial de git?</string>
+    <string name="vault_cleanup_description">El almacén de claves ya no se rastrea, pero sigue presente en los commits antiguos de este cuaderno. La limpieza sustituye todo el historial por un commit nuevo y fuerza su subida.</string>
+    <string name="vault_cleanup_warning_history">Después no se podrán restaurar las versiones anteriores de las notas. Otros dispositivos descargan el historial nuevo en su próxima sincronización.</string>
+    <string name="vault_cleanup_confirm">Limpiar el historial</string>
+    <string name="vault_cleanup_later">Ahora no</string>
+    <string name="msg_keystore_exported">Archivo de almacén de claves guardado</string>
+    <string name="msg_keystore_imported">Almacén de claves importado</string>
+    <string name="msg_vault_history_cleaned">Historial limpiado</string>
+    <string name="err_keystore_import_invalid">Este archivo no es un almacén de claves válido</string>
+    <string name="err_keystore_import_conflict">Este cuaderno ya usa un almacén de claves para otra clave</string>
+    <string name="err_keystore_export_failed">No se pudo guardar el archivo de almacén de claves</string>
+    <string name="err_vault_key_mismatch">Esta clave no abre este cuaderno</string>
 </resources>

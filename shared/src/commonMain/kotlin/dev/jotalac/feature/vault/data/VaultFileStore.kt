@@ -1,5 +1,6 @@
 package dev.jotalac.feature.vault.data
 
+import dev.jotalac.feature.vault.crypto.Hex
 import dev.jotalac.feature.vault.crypto.UnlockedVault
 import dev.jotalac.feature.vault.crypto.VaultFileCodec
 import dev.jotalac.feature.vault.crypto.canonicalRelPath
@@ -41,8 +42,11 @@ class VaultFileStore(
         val encoded = VaultFileCodec.encode(vault, relPath, content)
         val disk = diskPath(root, vault, relPath)
         // the temp file lives in .gw-vault so a crash leftover is hidden from the file tree;
-        // it is moved onto the target (or deleted) before this call returns
-        val tmp = Path(Path(root, VaultLayout.KEYSTORE_DIR), "tmp-" + disk.name)
+        // it is moved onto the target (or deleted) before this call returns. The directory may
+        // not exist - a device without a local keystore has none until the first write.
+        val tmpDir = Path(root, VaultLayout.KEYSTORE_DIR)
+        SystemFileSystem.createDirectories(tmpDir)
+        val tmp = Path(tmpDir, "tmp-" + disk.name)
         try {
             SystemFileSystem.sink(tmp).buffered().use { it.write(encoded) }
             try {
@@ -86,6 +90,32 @@ class VaultFileStore(
                 } catch (e: Exception) {
                     if (e is kotlinx.coroutines.CancellationException) throw e
                     null // orphan (wrong key id, corrupted, ...) - no virtual path to report
+                }
+            }
+    }
+
+    /**
+     * The key id of the first `.gwv` file whose plaintext header parses; null when the notebook
+     * has no encrypted files (or none with a readable header). Lets the manager tell a locked
+     * vault from a plain notebook without the keystore.
+     */
+    suspend fun firstKeyIdHex(root: String): String? = withContext(ioDispatcher) {
+        firstKeyIdHexBlocking(root)
+    }
+
+    /** Blocking variant of [firstKeyIdHex] for the synchronous quick-state checks. */
+    fun firstKeyIdHexBlocking(root: String): String? {
+        val rootPath = Path(root)
+        if (!SystemFileSystem.exists(rootPath)) return null
+        return SystemFileSystem.list(rootPath)
+            .filter { it.name.endsWith(VaultLayout.ENCRYPTED_EXTENSION) }
+            .firstNotNullOfOrNull { disk ->
+                try {
+                    val encoded = SystemFileSystem.source(disk).buffered().use { it.readByteArray() }
+                    VaultFileCodec.keyIdOf(encoded)?.let(Hex::encode)
+                } catch (e: Exception) {
+                    if (e is kotlinx.coroutines.CancellationException) throw e
+                    null // unreadable header - try the next file
                 }
             }
     }

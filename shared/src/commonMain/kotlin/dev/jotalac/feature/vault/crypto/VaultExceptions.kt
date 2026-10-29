@@ -12,6 +12,10 @@ class VaultTamperedDataException(
 /** The stored container/keystore bytes are not a parseable vault structure. */
 class VaultFormatException(message: String, cause: Throwable? = null) : VaultCryptoException(message, cause)
 
+/** A keystore for a different key was offered where one already exists. */
+class VaultKeystoreConflictException(message: String = "This notebook already uses a keystore for another key", cause: Throwable? = null) :
+    VaultCryptoException(message, cause)
+
 /** The passphrase (or recovery key) did not open the keystore. */
 class VaultWrongPassphraseException(cause: Throwable? = null) :
     VaultCryptoException("Wrong passphrase or corrupted keystore", cause)

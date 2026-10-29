@@ -244,4 +244,21 @@
     <string name="msg_vault_key_forgotten">已从此设备移除密钥</string>
     <string name="msg_vault_password_changed">密码已更改</string>
     <string name="err_vault_failed">加密操作失败</string>
+    <string name="vault_keystore_export_button">导出密钥库文件</string>
+    <string name="vault_keystore_import_button">导入密钥库文件</string>
+    <string name="vault_history_cleanup_button">清理历史记录</string>
+    <string name="vault_locked_no_keystore_description">此笔记本已加密，而此设备没有它的密钥。请输入恢复密钥，或从已解锁该笔记本的设备导入密钥库文件。</string>
+    <string name="vault_change_password_local_hint">密码保护的是此设备上的密钥库副本。其他设备保留各自的密码。</string>
+    <string name="vault_cleanup_title">清理 git 历史记录？</string>
+    <string name="vault_cleanup_description">密钥库已不再被跟踪，但仍存在于该笔记本的旧提交中。清理会用一个全新的提交替换整个历史并强制推送。</string>
+    <string name="vault_cleanup_warning_history">之后将无法恢复笔记的先前版本。其他设备会在下次同步时下载新的历史记录。</string>
+    <string name="vault_cleanup_confirm">清理历史记录</string>
+    <string name="vault_cleanup_later">暂不处理</string>
+    <string name="msg_keystore_exported">密钥库文件已保存</string>
+    <string name="msg_keystore_imported">密钥库已导入</string>
+    <string name="msg_vault_history_cleaned">历史记录已清理</string>
+    <string name="err_keystore_import_invalid">此文件不是有效的密钥库</string>
+    <string name="err_keystore_import_conflict">此笔记本已在使用另一密钥的密钥库</string>
+    <string name="err_keystore_export_failed">无法保存密钥库文件</string>
+    <string name="err_vault_key_mismatch">此密钥无法打开此笔记本</string>
 </resources>

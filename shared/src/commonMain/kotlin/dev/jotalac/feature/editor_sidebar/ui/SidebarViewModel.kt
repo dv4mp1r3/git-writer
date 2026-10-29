@@ -15,6 +15,8 @@ import dev.jotalac.feature.notebooks_management.domain.Notebook
 import dev.jotalac.feature.notebooks_management.domain.NotebookRepository
 import dev.jotalac.feature.pdf_export.PdfExportRequest
 import dev.jotalac.feature.vault.data.VaultController
+import dev.jotalac.feature.vault.crypto.VaultFormatException
+import dev.jotalac.feature.vault.crypto.VaultKeystoreConflictException
 import dev.jotalac.feature.vault.domain.NoteVault
 import dev.jotalac.feature.vault.domain.VaultState
 import kotlinx.coroutines.*
@@ -29,6 +31,10 @@ import git_writer.shared.generated.resources.err_failed_delete
 import git_writer.shared.generated.resources.err_failed_export_pdf
 import git_writer.shared.generated.resources.err_failed_move
 import git_writer.shared.generated.resources.err_failed_rename
+import git_writer.shared.generated.resources.err_keystore_import_conflict
+import git_writer.shared.generated.resources.err_keystore_import_invalid
+import git_writer.shared.generated.resources.err_vault_key_mismatch
+import git_writer.shared.generated.resources.msg_keystore_imported
 import git_writer.shared.generated.resources.msg_path_copied
 import git_writer.shared.generated.resources.msg_pdf_exported
 import git_writer.shared.generated.resources.msg_vault_unlocked
@@ -45,6 +51,7 @@ data class SidebarState(
     val vaultState: VaultState = VaultState.Off,
     val vaultBusy: Boolean = false,
     val vaultError: String? = null,
+    val keystoreImportRequest: Boolean = false,
 )
 
 class EditorSidebarViewModel(
@@ -149,6 +156,8 @@ class EditorSidebarViewModel(
             is SidebarAction.ExportPdf -> exportPdf(action.notePath)
             is SidebarAction.PdfExportFinished -> finishPdfExport(action.result)
             is SidebarAction.UnlockVault -> unlockVault(action.input, action.isRecoveryKey)
+            is SidebarAction.ImportVaultKeystore -> _uiState.update { it.copy(keystoreImportRequest = true) }
+            is SidebarAction.VaultKeystoreImportFinished -> finishKeystoreImport(action.result)
 
             is SidebarAction.CopyItemPath -> {
                 snackbarManager.showMessage(SnackbarText.resource(Res.string.msg_path_copied))
@@ -177,8 +186,30 @@ class EditorSidebarViewModel(
                 snackbarManager.showMessage(SnackbarText.resource(Res.string.msg_vault_unlocked))
             }.onFailure { error ->
                 if (error is CancellationException) throw error
-                _uiState.update { it.copy(vaultBusy = false, vaultError = getString(Res.string.sidebar_locked_wrong)) }
+                // a key that belongs to another vault says so - everything else reads as a wrong input
+                _uiState.update {
+                    it.copy(
+                        vaultBusy = false,
+                        vaultError = if (error is VaultFormatException) {
+                            getString(Res.string.err_vault_key_mismatch)
+                        } else {
+                            getString(Res.string.sidebar_locked_wrong)
+                        }
+                    )
+                }
             }
+        }
+    }
+
+    /** The keystore file picked from the locked panel: installed or reported through a snackbar. */
+    private fun finishKeystoreImport(result: Result<Unit>?) {
+        _uiState.update { it.copy(keystoreImportRequest = false) }
+        when {
+            result == null -> {} // the picker was cancelled, nothing to say
+            result.isSuccess -> snackbarManager.showMessage(SnackbarText.resource(Res.string.msg_keystore_imported))
+            result.exceptionOrNull() is VaultKeystoreConflictException ->
+                snackbarManager.showMessage(SnackbarText.resource(Res.string.err_keystore_import_conflict))
+            else -> snackbarManager.showMessage(SnackbarText.message(Res.string.err_keystore_import_invalid, result.exceptionOrNull()?.message))
         }
     }
 
@@ -338,7 +369,7 @@ class EditorSidebarViewModel(
             val filesTree = withContext(Dispatchers.IO) {
                 when (vault.stateOf(activeNotebook)) {
                     // vault notebooks list their decrypted paths, built from the encrypted headers
-                    is VaultState.Unlocked, VaultState.Locked -> vault.buildFileTree(activeNotebook) ?: notebookPath.buildFileTree()
+                    is VaultState.Unlocked, is VaultState.Locked -> vault.buildFileTree(activeNotebook) ?: notebookPath.buildFileTree()
                     VaultState.Off -> notebookPath.buildFileTree()
                 }
             }

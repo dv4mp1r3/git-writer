@@ -12,6 +12,8 @@ object VaultLayout {
 
     const val KEYSTORE_DIR = ".gw-vault"
     const val KEYSTORE_FILE = "keystore"
+    /** The keystore path as git sees it (relative, `/`-separated) - for untracking and ignore rules. */
+    const val KEYSTORE_GIT_PATH = "$KEYSTORE_DIR/$KEYSTORE_FILE"
     const val ENCRYPTED_EXTENSION = ".gwv"
 
     fun keystorePath(root: Path): Path = Path(Path(root, KEYSTORE_DIR), KEYSTORE_FILE)

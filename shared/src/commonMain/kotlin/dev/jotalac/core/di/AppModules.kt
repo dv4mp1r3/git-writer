@@ -27,6 +27,7 @@ import dev.jotalac.feature.vault.data.VaultController
 import dev.jotalac.feature.vault.data.VaultEditorRepository
 import dev.jotalac.feature.vault.data.VaultFileStore
 import dev.jotalac.feature.vault.data.VaultGitSyncRepository
+import dev.jotalac.feature.vault.data.VaultKeystoreMigration
 import dev.jotalac.feature.vault.data.VaultManagerImpl
 import dev.jotalac.feature.vault.data.VaultMerger
 import dev.jotalac.feature.vault.domain.NoteVault
@@ -119,6 +120,16 @@ val featureModules = module {
 
     // the enable / disable / catch-up flows: note conversion + git history rewrite in one place
     single { VaultController(get(), get(), get()) }
+
+    // takes the keystore out of the repositories of already encrypted notebooks (one-time,
+    // retried after syncs because older app versions can commit it again)
+    single {
+        VaultKeystoreMigration(
+            notebookRepository = get(),
+            git = get(),
+            fileStore = get(),
+        )
+    }
 
     viewModelOf(::EditorViewModel)
     viewModelOf(::CreateNotebookViewModel)

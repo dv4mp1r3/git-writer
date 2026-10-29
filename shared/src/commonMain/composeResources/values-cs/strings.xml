@@ -243,4 +243,21 @@
     <string name="msg_vault_key_forgotten">Klíč byl odebrán z tohoto zařízení</string>
     <string name="msg_vault_password_changed">Heslo bylo změněno</string>
     <string name="err_vault_failed">Operace šifrování se nezdařila</string>
+    <string name="vault_keystore_export_button">Exportovat soubor klíčenky</string>
+    <string name="vault_keystore_import_button">Importovat soubor klíčenky</string>
+    <string name="vault_history_cleanup_button">Vyčistit historii</string>
+    <string name="vault_locked_no_keystore_description">Tento zápisník je šifrovaný a toto zařízení nemá jeho klíč. Zadejte klíč pro obnovení nebo importujte soubor klíčenky uložený na zařízení, kde je zápisník odemčený.</string>
+    <string name="vault_change_password_local_hint">Heslo chrání kopii klíčenky na tomto zařízení. Ostatní zařízení mají svá vlastní hesla.</string>
+    <string name="vault_cleanup_title">Vyčistit historii gitu?</string>
+    <string name="vault_cleanup_description">Klíčenka už není sledovaná, ale stále je obsažená ve starých commitech tohoto zápisníku. Vyčištění nahradí celou historii jedním novým commitem a vloží ho silou (force push).</string>
+    <string name="vault_cleanup_warning_history">Předchozí verze poznámek už nebude možné obnovit. Ostatní zařízení stáhnou novou historii při příští synchronizaci.</string>
+    <string name="vault_cleanup_confirm">Vyčistit historii</string>
+    <string name="vault_cleanup_later">Teď ne</string>
+    <string name="msg_keystore_exported">Soubor klíčenky byl uložen</string>
+    <string name="msg_keystore_imported">Klíčenka byla importována</string>
+    <string name="msg_vault_history_cleaned">Historie byla vyčištěna</string>
+    <string name="err_keystore_import_invalid">Tento soubor není platná klíčenka</string>
+    <string name="err_keystore_import_conflict">Tento zápisník už používá klíčenku jiného klíče</string>
+    <string name="err_keystore_export_failed">Soubor klíčenky se nepodařilo uložit</string>
+    <string name="err_vault_key_mismatch">Tento klíč neotevře tento zápisník</string>
 </resources>

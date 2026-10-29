@@ -244,4 +244,21 @@
     <string name="msg_vault_key_forgotten">Key removed from this device</string>
     <string name="msg_vault_password_changed">Password changed</string>
     <string name="err_vault_failed">Encryption operation failed</string>
+    <string name="vault_keystore_export_button">Export keystore file</string>
+    <string name="vault_keystore_import_button">Import keystore file</string>
+    <string name="vault_history_cleanup_button">Clean up history</string>
+    <string name="vault_locked_no_keystore_description">This notebook is encrypted and this device has no key for it. Enter the recovery key, or import the keystore file saved from a device where the notebook is unlocked.</string>
+    <string name="vault_change_password_local_hint">The password protects the keystore copy on this device. Other devices keep their own passwords.</string>
+    <string name="vault_cleanup_title">Clean up git history?</string>
+    <string name="vault_cleanup_description">The keystore was removed from tracking, but it is still present in the old commits of this notebook. Cleaning up replaces the whole history with one fresh commit and force-pushes it.</string>
+    <string name="vault_cleanup_warning_history">Previous versions of the notes cannot be restored afterwards. Other devices download the fresh history on their next sync.</string>
+    <string name="vault_cleanup_confirm">Clean up history</string>
+    <string name="vault_cleanup_later">Not now</string>
+    <string name="msg_keystore_exported">Keystore file saved</string>
+    <string name="msg_keystore_imported">Keystore imported</string>
+    <string name="msg_vault_history_cleaned">History cleaned up</string>
+    <string name="err_keystore_import_invalid">This file is not a valid keystore</string>
+    <string name="err_keystore_import_conflict">This notebook already uses a keystore for another key</string>
+    <string name="err_keystore_export_failed">Could not save the keystore file</string>
+    <string name="err_vault_key_mismatch">This key does not open this notebook</string>
 </resources>

@@ -46,7 +46,7 @@ class VaultEditorRepository(
         val notebook = notebooks.first { it.directoryPath == root }
         return when (vault.stateOf(notebook)) {
             is VaultState.Unlocked -> Route.Vault(root)
-            VaultState.Locked -> Route.LockedVault
+            is VaultState.Locked -> Route.LockedVault
             VaultState.Off -> Route.Plain
         }
     }

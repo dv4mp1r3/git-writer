@@ -43,12 +43,22 @@ class VaultController(
         // from this moment every commit of the notebook is anonymous
         if (hasRemote) git.setRepoIdentity(dir).getOrThrow()
 
+        if (vault.stateOf(notebook) is VaultState.Off && hasRemote) {
+            // a stale clone of an already encrypted notebook has no `.gwv` files yet and reads
+            // as Off - syncing brings them in and flips the state to Locked, so no second key
+            // can be minted over the first one
+            git.syncNotes(dir, password!!, notebook.remoteUsername).getOrThrow()
+        }
+
         if (vault.stateOf(notebook) is VaultState.Off) {
             vault.createVault(notebook, passphrase).getOrThrow()
             encryptAllNotes(notebook).getOrThrow()
         } else if (listPlaintextRelPaths(dir).isNotEmpty()) {
             encryptAllNotes(notebook).getOrThrow()
         }
+
+        // the keystore is device-local - the ignore entry must exist before the history rewrite
+        ensureKeystoreIgnored(dir)
 
         if (hasGit) git.resetHistoryToCurrentState(dir, ENCRYPT_MESSAGE).getOrThrow()
         if (hasRemote) git.forcePush(dir, password!!, notebook.remoteUsername).getOrThrow()
@@ -80,6 +90,25 @@ class VaultController(
     /** The same, when the passphrase was lost and the recovery key is what is left. */
     suspend fun adoptEncryptedNotebookWithRecoveryKey(notebook: Notebook, recoveryKey: String): Result<Unit> =
         adopt(notebook) { vault.unlockWithRecoveryKey(notebook, recoveryKey) }
+
+    /**
+     * Replaces the notebook's history with one commit of the current tree and force-pushes it, so
+     * the keystore the history still holds disappears from the repository (the local file stays).
+     * Offered after the automatic keystore untracking - history is the only place it can survive.
+     */
+    suspend fun purgeVaultHistory(notebook: Notebook): Result<Unit> = suspendRunCatching {
+        val dir = notebook.directoryPath
+        val password = notebook.remotePassword
+        val hasGit = isGitNotebook(dir)
+        val hasRemote = hasGit && !notebook.remoteUrl.isNullOrBlank() && password != null
+        if (!hasGit) return@suspendRunCatching
+
+        ensureKeystoreIgnored(dir)
+        // from this moment every commit of the notebook is anonymous
+        if (hasRemote) git.setRepoIdentity(dir).getOrThrow()
+        git.resetHistoryToCurrentState(dir, PURGE_MESSAGE).getOrThrow()
+        if (hasRemote) git.forcePush(dir, password!!, notebook.remoteUsername).getOrThrow()
+    }
 
     /** Unlocks a notebook that is already on the encrypted remote state - no git work to do. */
     suspend fun unlockEncryptedNotebook(notebook: Notebook, passphrase: String): Result<Unit> =
@@ -220,5 +249,6 @@ class VaultController(
         const val ENCRYPT_MESSAGE = "Encrypt notes"
         const val DECRYPT_MESSAGE = "Decrypt notes"
         const val ADOPT_MESSAGE = "Restore notes after encryption"
+        const val PURGE_MESSAGE = "Remove the vault keystore from history"
     }
 }

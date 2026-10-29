@@ -233,6 +233,13 @@ class LibGit2SyncRepositoryImpl(
         }
     }
 
+    override suspend fun untrackFile(currentNotebookPath: String, relativePath: String): Result<Boolean> = runGit {
+        GitRepository.open(currentNotebookPath).use { repo ->
+            // removes the index entry only - the working-tree file stays on the device
+            repo.untrackPath(relativePath)
+        }
+    }
+
     override suspend fun setRepoIdentity(currentNotebookPath: String): Result<Unit> = runGit {
         GitRepository.open(currentNotebookPath).use { repo ->
             repo.setConfig("user.name", VAULT_GIT_NAME)

@@ -49,6 +49,20 @@ object VaultFileCodec {
     }
 
     /**
+     * The key id from the plaintext header, null when the data is too short or the magic/version
+     * do not match. This is how a vault is recognized without its keystore - the key id travels
+     * inside every encrypted file.
+     */
+    fun keyIdOf(encoded: ByteArray): ByteArray? {
+        if (encoded.size < MAGIC.size + 1 + KEY_ID_BYTES) return null
+        for (i in MAGIC.indices) {
+            if (encoded[i] != MAGIC[i]) return null
+        }
+        if ((encoded[MAGIC.size].toInt() and 0xFF) != VERSION) return null
+        return encoded.copyOfRange(MAGIC.size + 1, MAGIC.size + 1 + KEY_ID_BYTES)
+    }
+
+    /**
      * @param cname the encrypted base name this file is stored under, without [FILE_EXTENSION]
      * @throws VaultFormatException on a malformed header or key id mismatch
      * @throws VaultTamperedDataException when authentication fails (wrong key, edits, swapped blobs)

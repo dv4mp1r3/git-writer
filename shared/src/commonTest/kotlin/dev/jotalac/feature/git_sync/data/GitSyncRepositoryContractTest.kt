@@ -306,6 +306,53 @@ abstract class GitSyncRepositoryContractTest {
         assertEquals(VAULT_GIT_NAME, lastCommitAuthorName(laptop))
     }
 
+    // --- untracking (the vault keystore leaves the repository)
+
+    @Test
+    fun `untracking a tracked file keeps it on disk and drops it from the repository`() = runTest {
+        val laptop = device("laptop")
+        SystemFileSystem.createDirectories(Path(laptop, ".gw-vault"))
+        write(laptop, ".gw-vault/keystore", "wrapped-key")
+        sync(laptop).getOrThrow()
+        assertTrue(existsOnRemote(".gw-vault/keystore"))
+
+        val result = repository.untrackFile(laptop, ".gw-vault/keystore")
+
+        assertTrue(result.getOrThrow())
+        assertTrue(SystemFileSystem.exists(Path(laptop, ".gw-vault/keystore"))) // the local file stays
+        repository.commitStaged(laptop, "Stop tracking the vault keystore").getOrThrow()
+        repository.pushChanges(laptop, "token", "user").getOrThrow()
+        assertFalse(existsOnRemote(".gw-vault/keystore"))
+        // the file is still in the worktree after the commit - nothing re-added it
+        assertTrue(SystemFileSystem.exists(Path(laptop, ".gw-vault/keystore")))
+    }
+
+    @Test
+    fun `untracking a file that is not tracked reports false`() = runTest {
+        val laptop = device("laptop")
+
+        val result = repository.untrackFile(laptop, ".gw-vault/keystore")
+
+        assertFalse(result.getOrThrow())
+    }
+
+    @Test
+    fun `sync does not commit a file that gitignore ignores`() = runTest {
+        // the keystore must survive a sync without travelling: `.gitignore` decides what sync stages
+        val laptop = device("laptop")
+        write(laptop, ".gitignore", ".gw-vault/\n")
+        SystemFileSystem.createDirectories(Path(laptop, ".gw-vault"))
+        write(laptop, ".gw-vault/keystore", "wrapped-key")
+        write(laptop, "note.md", "note")
+
+        sync(laptop).getOrThrow()
+
+        val check = device("check-${checkouts++}")
+        assertEquals("note", read(check, "note.md"))
+        assertTrue(SystemFileSystem.exists(Path(check, ".gitignore")))
+        assertFalse(SystemFileSystem.exists(Path(check, ".gw-vault/keystore")))
+    }
+
     // --- helpers
 
     private suspend fun device(name: String, remote: String = this.remote): String {
