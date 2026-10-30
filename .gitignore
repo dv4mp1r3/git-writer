@@ -20,6 +20,7 @@ node_modules/
 .agents/
 .claude/
 androidApp/release
+/dist/
 kls_database.db
 
 third_party/libgit2/slices
