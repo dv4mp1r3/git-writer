@@ -153,11 +153,13 @@ fun SidebarContent(
         //display the folders content
         if (lockedVault != null) {
             VaultLockedPanel(
+                locked = lockedVault,
                 busy = state.vaultBusy,
                 error = state.vaultError,
                 onUnlock = { input, isRecoveryKey ->
                     viewModel.onAction(SidebarAction.UnlockVault(input, isRecoveryKey))
                 },
+                onImportKeystore = { viewModel.onAction(SidebarAction.ImportVaultKeystore) },
             )
         } else if (state.fileTree != null) {
             val visibleItems = remember(state.fileTree, state.expandedFolders) {
