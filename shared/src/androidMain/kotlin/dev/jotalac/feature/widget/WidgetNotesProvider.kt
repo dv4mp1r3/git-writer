@@ -51,7 +51,7 @@ object WidgetNotesProvider {
         VaultState.Off -> loadPlainNotebook(notebook)
         is VaultState.Unlocked -> loadVaultNotebook(notebook)
         // no key on this device yet - the widget shows placeholders without names or text
-        VaultState.Locked -> WidgetNotebook(notebook.name, loadLockedPlaceholders(notebook))
+        is VaultState.Locked -> WidgetNotebook(notebook.name, loadLockedPlaceholders(notebook))
     }
 
     // the editor opens the active note, so activating it is enough to open it on app start

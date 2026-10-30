@@ -186,6 +186,9 @@ class VaultGitSyncRepository(
     override suspend fun stageFile(currentNotebookPath: String, filePath: String, content: ByteArray): Result<Unit> =
         base.stageFile(currentNotebookPath, filePath, content)
 
+    override suspend fun untrackFile(currentNotebookPath: String, relativePath: String): Result<Boolean> =
+        base.untrackFile(currentNotebookPath, relativePath)
+
     override suspend fun setRepoIdentity(currentNotebookPath: String): Result<Unit> =
         base.setRepoIdentity(currentNotebookPath)
 

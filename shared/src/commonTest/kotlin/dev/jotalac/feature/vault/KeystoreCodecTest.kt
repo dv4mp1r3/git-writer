@@ -22,7 +22,7 @@ class KeystoreCodecTest {
     @Test
     fun create_then_unlock_roundtrip() = runTest {
         val opened = KeystoreCodec.createVault("пароль синхронизации")
-        val reopened = KeystoreCodec.unlock(opened.keystoreJson, "пароль синхронизации")
+        val reopened = KeystoreCodec.unlock(opened.keystoreJson!!, "пароль синхронизации")
         assertContentEquals(opened.vault.keyId, reopened.vault.keyId)
         assertContentEquals(opened.vault.keys.contentKey, reopened.vault.keys.contentKey)
         assertContentEquals(opened.vault.keys.masterKey, reopened.vault.keys.masterKey)
@@ -31,22 +31,30 @@ class KeystoreCodecTest {
     @Test
     fun wrong_passphrase_is_rejected_cleanly() = runTest {
         val opened = KeystoreCodec.createVault("right-password")
-        assertFailsWith<VaultWrongPassphraseException> { KeystoreCodec.unlock(opened.keystoreJson, "wrong-password") }
+        assertFailsWith<VaultWrongPassphraseException> { KeystoreCodec.unlock(opened.keystoreJson!!, "wrong-password") }
         // empty and unicode wrong guesses fail the same way, not with a raw crypto error
-        assertFailsWith<VaultWrongPassphraseException> { KeystoreCodec.unlock(opened.keystoreJson, "") }
-        assertFailsWith<VaultWrongPassphraseException> { KeystoreCodec.unlock(opened.keystoreJson, "правильный пароль") }
+        assertFailsWith<VaultWrongPassphraseException> { KeystoreCodec.unlock(opened.keystoreJson!!, "") }
+        assertFailsWith<VaultWrongPassphraseException> { KeystoreCodec.unlock(opened.keystoreJson!!, "правильный пароль") }
     }
 
     @Test
     fun unlock_accepts_recovery_key_instead_of_passphrase() = runTest {
         val opened = KeystoreCodec.createVault("pass-123")
-        val recovery = RecoveryKeyCodec.encode(opened.vault.keys.masterKey)
+        val recovery = RecoveryKeyCodec.encode(opened.vault.keyId, opened.vault.keys.masterKey)
         // the recovery key is the master key itself, not a passphrase - unlock must reject it
-        assertFailsWith<VaultWrongPassphraseException> { KeystoreCodec.unlock(opened.keystoreJson, recovery) }
+        assertFailsWith<VaultWrongPassphraseException> { KeystoreCodec.unlock(opened.keystoreJson!!, recovery) }
         // its own path decodes straight to the master key
-        val reopened = KeystoreCodec.unlockWithRecoveryKey(opened.keystoreJson, recovery)
+        val reopened = KeystoreCodec.unlockWithRecoveryKey(opened.keystoreJson!!, recovery)
         assertContentEquals(opened.vault.keys.masterKey, reopened.vault.keys.masterKey)
         assertContentEquals(opened.vault.keyId, reopened.vault.keyId)
+    }
+
+    @Test
+    fun recovery_key_for_another_vault_is_rejected() = runTest {
+        val opened = KeystoreCodec.createVault("pass-123")
+        val other = KeystoreCodec.createVault("pass-456")
+        val foreignKey = RecoveryKeyCodec.encode(other.vault.keyId, other.vault.keys.masterKey)
+        assertFailsWith<VaultFormatException> { KeystoreCodec.unlockWithRecoveryKey(opened.keystoreJson!!, foreignKey) }
     }
 
     @Test
@@ -56,7 +64,7 @@ class KeystoreCodecTest {
         val file = VaultFileCodec.encode(opened.vault, "note.md", "данные".encodeToByteArray())
         val cname = opened.vault.cnameOf("note.md")
 
-        val newJson = KeystoreCodec.changePassphrase(opened.keystoreJson, "old-pass", "new-pass")
+        val newJson = KeystoreCodec.changePassphrase(opened.keystoreJson!!, "old-pass", "new-pass")
 
         assertFailsWith<VaultWrongPassphraseException> { KeystoreCodec.unlock(newJson, "old-pass") }
         val reopened = KeystoreCodec.unlock(newJson, "new-pass")
@@ -70,7 +78,7 @@ class KeystoreCodecTest {
     @Test
     fun keystore_json_schema_is_pinned() = runTest {
         val opened = KeystoreCodec.createVault("p")
-        val root = Json.parseToJsonElement(opened.keystoreJson).jsonObject
+        val root = Json.parseToJsonElement(opened.keystoreJson!!).jsonObject
         assertEquals("1", root["version"]!!.jsonPrimitive.content)
         assertEquals(dev.jotalac.feature.vault.crypto.Hex.encode(opened.vault.keyId), root["key_id"]!!.jsonPrimitive.content)
         val kdf = root["kdf"]!!.jsonObject
@@ -100,27 +108,6 @@ class KeystoreCodecTest {
         val reopened = KeystoreCodec.unlock(KAT_KEYSTORE_JSON, "пароль-тест")
         assertContentEquals(masterKey, reopened.vault.keys.masterKey)
         assertContentEquals(keyId, reopened.vault.keyId)
-    }
-
-    @Test
-    fun recovery_key_string_roundtrip() = runTest {
-        VaultCrypto.init()
-        val masterKey = ByteArray(32) { (it * 5 + 3).toByte() }
-        val text = RecoveryKeyCodec.encode(masterKey)
-        assertTrue(text.startsWith("GW1-"))
-        assertEquals(12, text.split('-').size) // prefix + 10 full groups of 5 + tail of 2
-        assertContentEquals(masterKey, RecoveryKeyCodec.decode(text))
-        assertContentEquals(masterKey, RecoveryKeyCodec.decode(text.lowercase()))
-        assertContentEquals(masterKey, RecoveryKeyCodec.decode("  ${text.replace('-', ' ')}  "))
-    }
-
-    @Test
-    fun recovery_key_rejects_garbage() = runTest {
-        VaultCrypto.init()
-        assertFailsWith<VaultFormatException> {
-            RecoveryKeyCodec.decode("XX1-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-        }
-        assertFailsWith<VaultFormatException> { RecoveryKeyCodec.decode("GW1-short") }
     }
 
     private companion object {

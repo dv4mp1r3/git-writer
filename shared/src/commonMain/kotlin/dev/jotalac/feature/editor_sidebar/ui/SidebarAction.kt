@@ -14,4 +14,7 @@ sealed interface SidebarAction {
     data class PdfExportFinished(val result: Result<String?>) : SidebarAction
     data class SetRenameItem(val path: String?) : SidebarAction
     data class UnlockVault(val input: String, val isRecoveryKey: Boolean) : SidebarAction
+    data object ImportVaultKeystore : SidebarAction
+    // null - the file picker was cancelled
+    data class VaultKeystoreImportFinished(val result: Result<Unit>?) : SidebarAction
 }

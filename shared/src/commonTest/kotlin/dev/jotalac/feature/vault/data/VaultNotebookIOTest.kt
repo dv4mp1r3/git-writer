@@ -4,6 +4,10 @@ import dev.jotalac.core.utils.deleteRecursively
 import dev.jotalac.feature.editor.data.EditorRepositoryImpl
 import dev.jotalac.feature.editor_sidebar.domain.FileNode
 import dev.jotalac.feature.notebooks_management.domain.Notebook
+import dev.jotalac.feature.vault.crypto.Base32
+import dev.jotalac.feature.vault.crypto.RecoveryKeyCodec
+import dev.jotalac.feature.vault.crypto.VaultFormatException
+import dev.jotalac.feature.vault.crypto.VaultKeystoreConflictException
 import dev.jotalac.feature.vault.domain.VaultLockedException
 import dev.jotalac.feature.vault.domain.VaultState
 import dev.jotalac.testing.fakes.FakeNotebookRepository
@@ -15,6 +19,7 @@ import kotlinx.io.buffered
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import kotlinx.io.files.SystemTemporaryDirectory
+import kotlinx.io.readString
 import kotlinx.io.writeString
 import kotlin.random.Random
 import kotlin.test.AfterTest
@@ -84,9 +89,9 @@ class VaultNotebookIOTest {
         val notePath = editor.createNote(notebookDir.toString(), "untitled").getOrThrow()
         assertTrue(notePath.startsWith(notebookDir.toString()), "the decorator returns a virtual path")
 
-        // on disk there is exactly one encrypted file and the keystore - no plaintext
+        // on disk there is exactly one encrypted file, the keystore and the ignore entry - no plaintext
         val files = diskFiles()
-        assertEquals(2, files.size, "expected one .gwv + keystore dir, got $files")
+        assertEquals(3, files.size, "expected one .gwv + keystore dir + .gitignore, got $files")
         assertTrue(files.any { it.endsWith(".gwv") })
         assertTrue(files.contains(VaultLayout.KEYSTORE_DIR))
         assertFalse(files.any { it.endsWith(".md") })
@@ -193,7 +198,8 @@ class VaultNotebookIOTest {
         val readFailure = editor.readNoteContent(notePath).exceptionOrNull()
         assertIs<VaultLockedException>(readFailure)
         assertFalse(editor.fileExists(notePath))
-        assertEquals(2, diskFiles().size) // the encrypted file is untouched on disk
+        // the encrypted file, the keystore and the ignore entry are untouched on disk
+        assertEquals(3, diskFiles().size)
 
         val tree = vault.buildFileTree(notebook)
         val node = assertIs<FileNode.File>(tree?.children?.single())
@@ -295,5 +301,142 @@ class VaultNotebookIOTest {
         assertTrue(diskFiles().contains("plain.md"))
         assertEquals("visible", editor.readNoteContent(notePath).getOrThrow())
         assertIs<VaultState.Off>(vault.stateOf(notebook))
+    }
+
+    // --- keystore-less devices (the keystore never travels through git)
+
+    /** Removes the local keystore copy - the situation a fresh clone of an encrypted notebook is in. */
+    private fun deleteKeystore() {
+        Path(notebookDir, VaultLayout.KEYSTORE_DIR).deleteRecursively()
+    }
+
+    @Test
+    fun `a vault without a local keystore reads as locked with the key id from the note headers`() = runTest {
+        vault.createVault(notebook, "pass").getOrThrow()
+        editor.createNote(notebookDir.toString(), "note", "data").getOrThrow()
+
+        deleteKeystore()
+        vault.forgetKeyOnDevice(notebook)
+        vault.refreshStates()
+
+        val locked = assertIs<VaultState.Locked>(vault.stateOf(notebook))
+        assertTrue(locked.keyIdHex != null, "the key id comes from the first `.gwv` header")
+        assertFalse(locked.hasLocalKeystore)
+    }
+
+    @Test
+    fun `a GW2 recovery key unlocks a vault without a keystore and creates none`() = runTest {
+        vault.createVault(notebook, "pass").getOrThrow()
+        val notePath = editor.createNote(notebookDir.toString(), "note", "data").getOrThrow()
+        val recovery = vault.recoveryKeyOf(notebook)!!
+
+        deleteKeystore()
+        vault.forgetKeyOnDevice(notebook)
+        vault.refreshStates()
+
+        vault.unlockWithRecoveryKey(notebook, recovery).getOrThrow()
+        assertEquals("data", editor.readNoteContent(notePath).getOrThrow())
+        assertFalse(SystemFileSystem.exists(VaultLayout.keystorePath(notebookDir)), "no keystore is created for the new device")
+        val unlocked = assertIs<VaultState.Unlocked>(vault.stateOf(notebook))
+        assertFalse(unlocked.hasLocalKeystore)
+    }
+
+    @Test
+    fun `a legacy GW1 key without a keystore is proven by decrypting a note`() = runTest {
+        vault.createVault(notebook, "pass").getOrThrow()
+        val notePath = editor.createNote(notebookDir.toString(), "note", "data").getOrThrow()
+        val masterKey = vault.sessionForPath(notebookDir.toString())!!.vault.keys.masterKey
+        val legacy = Base32.encode(masterKey, uppercase = true).chunked(5).joinToString("-", prefix = "GW1-")
+
+        deleteKeystore()
+        vault.forgetKeyOnDevice(notebook)
+        vault.refreshStates()
+
+        vault.unlockWithRecoveryKey(notebook, legacy).getOrThrow()
+        assertEquals("data", editor.readNoteContent(notePath).getOrThrow())
+    }
+
+    @Test
+    fun `a legacy GW1 key with a wrong master key is rejected when there is no keystore`() = runTest {
+        vault.createVault(notebook, "pass").getOrThrow()
+        editor.createNote(notebookDir.toString(), "note", "data").getOrThrow()
+
+        deleteKeystore()
+        vault.forgetKeyOnDevice(notebook)
+        vault.refreshStates()
+        val wrong = Base32.encode(ByteArray(32) { 7 }, uppercase = true).chunked(5).joinToString("-", prefix = "GW1-")
+
+        assertFailsWith<VaultFormatException> {
+            vault.unlockWithRecoveryKey(notebook, wrong).getOrThrow()
+        }
+    }
+
+    @Test
+    fun `a GW2 key of another vault is rejected when there is no keystore`() = runTest {
+        vault.createVault(notebook, "pass").getOrThrow()
+        editor.createNote(notebookDir.toString(), "note", "data").getOrThrow()
+
+        deleteKeystore()
+        vault.forgetKeyOnDevice(notebook)
+        vault.refreshStates()
+        val foreign = RecoveryKeyCodec.encode(ByteArray(8) { 3 }, ByteArray(32) { 9 })
+
+        assertFailsWith<VaultFormatException> {
+            vault.unlockWithRecoveryKey(notebook, foreign).getOrThrow()
+        }
+    }
+
+    @Test
+    fun `importing a keystore file makes the notebook passphrase-openable again`() = runTest {
+        vault.createVault(notebook, "pass").getOrThrow()
+        val notePath = editor.createNote(notebookDir.toString(), "note", "data").getOrThrow()
+        val keystoreJson = vault.localKeystoreJson(notebook).getOrThrow()!!
+
+        deleteKeystore()
+        vault.forgetKeyOnDevice(notebook)
+        vault.refreshStates()
+        assertNull(vault.localKeystoreJson(notebook).getOrThrow())
+
+        vault.importKeystore(notebook, keystoreJson).getOrThrow()
+        vault.refreshStates()
+
+        val locked = assertIs<VaultState.Locked>(vault.stateOf(notebook))
+        assertTrue(locked.hasLocalKeystore)
+        vault.unlock(notebook, "pass").getOrThrow()
+        assertEquals("data", editor.readNoteContent(notePath).getOrThrow())
+        // the imported copy is not on its way into git either
+        val gitignore = SystemFileSystem.source(Path(notebookDir, ".gitignore")).buffered().use { it.readString() }
+        assertTrue(".gw-vault/" in gitignore, "expected the vault entry in: $gitignore")
+    }
+
+    @Test
+    fun `importing a keystore of another key over an existing one is refused`() = runTest {
+        vault.createVault(notebook, "pass").getOrThrow()
+        val originalJson = vault.localKeystoreJson(notebook).getOrThrow()!!
+
+        val otherDir = Path(SystemTemporaryDirectory, "git_writer_vault_other_${Random.nextInt()}")
+        SystemFileSystem.createDirectories(otherDir)
+        val other = Notebook(2, "Other", otherDir.toString(), null, null, null)
+        notebooks.notebooks.value = listOf(notebook, other)
+        try {
+            vault.createVault(other, "other-pass").getOrThrow()
+            val otherJson = vault.localKeystoreJson(other).getOrThrow()!!
+
+            assertFailsWith<VaultKeystoreConflictException> {
+                vault.importKeystore(notebook, otherJson).getOrThrow()
+            }
+            assertEquals(originalJson, vault.localKeystoreJson(notebook).getOrThrow())
+        } finally {
+            otherDir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `importing a broken keystore file is refused`() = runTest {
+        vault.createVault(notebook, "pass").getOrThrow()
+
+        assertFailsWith<VaultFormatException> {
+            vault.importKeystore(notebook, "not a keystore").getOrThrow()
+        }
     }
 }

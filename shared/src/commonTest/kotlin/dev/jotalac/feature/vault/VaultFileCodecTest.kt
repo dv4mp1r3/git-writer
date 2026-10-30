@@ -77,6 +77,18 @@ class VaultFileCodecTest {
     }
 
     @Test
+    fun key_id_is_readable_from_the_plaintext_header() = runTest {
+        val vault = fixedVault()
+        val encoded = VaultFileCodec.encode(vault, "a.md", byteArrayOf(1), fixedNonce())
+        assertContentEquals(vault.keyId, VaultFileCodec.keyIdOf(encoded))
+        // too short, foreign magic, foreign version - all unreadable
+        assertEquals(null, VaultFileCodec.keyIdOf(ByteArray(10)))
+        assertEquals(null, VaultFileCodec.keyIdOf(ByteArray(64) { 1 }))
+        val badVersion = encoded.copyOf().also { it[7] = 9 }
+        assertEquals(null, VaultFileCodec.keyIdOf(badVersion))
+    }
+
+    @Test
     fun decode_rejects_malformed_input() = runTest {
         val vault = fixedVault()
         assertFailsWith<VaultFormatException> { VaultFileCodec.decode(ByteArray(10), vault, "x") }

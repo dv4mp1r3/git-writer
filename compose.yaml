@@ -1,0 +1,56 @@
+# Local desktop installer builds in Docker, without CI: builds the Linux .deb/.rpm for x86_64
+# and arm64 (see docker/README.md). Two services, one Dockerfile - jpackage cannot cross-compile,
+# so each architecture needs its own container running its own platform.
+#
+#   docker compose run --rm build-x64     # -> dist/GitWriter-<version>-linux-x86_64.{deb,rpm}
+#   docker compose run --rm build-arm64   # -> dist/GitWriter-<version>-linux-arm64.{deb,rpm}
+#   docker compose run --rm build-x64 shell
+#
+# tools/docker-build.sh wraps all of this (uid/gid, SELinux, mkdir dist) - prefer it.
+
+name: git-writer-desktop-build
+
+x-common: &common
+  # The image needs nothing from the repository - the repo is bind-mounted at run time - so the
+  # build context is the docker/ directory alone and no .dockerignore is needed.
+  build:
+    context: docker
+    dockerfile: Dockerfile
+  init: true
+  working_dir: /workspace
+  environment:
+    HOME: /home/builder
+    GRADLE_USER_HOME: /cache/gradle
+  # The build wants ~7 GB (gradle.properties: Xmx4096M + kotlin daemon Xmx3072M); uncomment to cap:
+  # mem_limit: 8g
+
+services:
+  build-x64:
+    <<: *common
+    image: git-writer-build:x64
+    platform: linux/amd64
+    # The host user's uid/gid, so files written into the bind-mounted repo stay host-owned.
+    # tools/docker-build.sh exports these; the default matches the conventional first user.
+    user: "${GITWRITER_UID:-1000}:${GITWRITER_GID:-1000}"
+    volumes:
+      # COMPOSE_MOUNT_OPTS=:Z relabels the mounts for SELinux (Fedora); empty elsewhere.
+      - ".:/workspace${COMPOSE_MOUNT_OPTS:-}"
+      - "./dist:/out${COMPOSE_MOUNT_OPTS:-}"
+      # One cache volume per architecture: the Gradle daemon, any provisioned JDK and the
+      # arch-specific skiko natives must not be shared between platforms. Arch-independent
+      # dependencies get downloaded twice (~1-2 GB each) - that is the accepted trade.
+      - "gradle-cache-x86_64:/cache"
+
+  build-arm64:
+    <<: *common
+    image: git-writer-build:arm64
+    platform: linux/arm64
+    user: "${GITWRITER_UID:-1000}:${GITWRITER_GID:-1000}"
+    volumes:
+      - ".:/workspace${COMPOSE_MOUNT_OPTS:-}"
+      - "./dist:/out${COMPOSE_MOUNT_OPTS:-}"
+      - "gradle-cache-arm64:/cache"
+
+volumes:
+  gradle-cache-x86_64:
+  gradle-cache-arm64:

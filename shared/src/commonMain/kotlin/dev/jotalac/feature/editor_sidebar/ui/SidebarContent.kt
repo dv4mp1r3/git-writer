@@ -20,6 +20,7 @@ import dev.jotalac.core.utils.isDesktopPlatform
 import dev.jotalac.feature.editor_sidebar.ui.components.ActiveNotebookMenu
 import dev.jotalac.feature.editor_sidebar.ui.components.VaultLockedPanel
 import dev.jotalac.feature.vault.domain.VaultState
+import dev.jotalac.feature.vault.ui.VaultKeystoreImportDialog
 import dev.jotalac.feature.editor_sidebar.ui.components.SidebarGlobalActions
 import dev.jotalac.feature.editor_sidebar.ui.components.file_tree.FileTree
 import dev.jotalac.feature.notebooks_management.ui.create_notebook.CreateNotebookDialog
@@ -79,6 +80,13 @@ fun SidebarContent(
 
     state.pdfExport?.let { request ->
         PdfExportDialog(request, onFinished = { viewModel.onAction(SidebarAction.PdfExportFinished(it)) })
+    }
+
+    val lockedVault = state.vaultState as? VaultState.Locked
+    if (state.keystoreImportRequest && state.activeNotebook != null) {
+        VaultKeystoreImportDialog(state.activeNotebook!!) {
+            viewModel.onAction(SidebarAction.VaultKeystoreImportFinished(it))
+        }
     }
 
     if (showDesktopSettingsDialog) {
@@ -143,7 +151,7 @@ fun SidebarContent(
 
 
         //display the folders content
-        if (state.vaultState is VaultState.Locked) {
+        if (lockedVault != null) {
             VaultLockedPanel(
                 busy = state.vaultBusy,
                 error = state.vaultError,

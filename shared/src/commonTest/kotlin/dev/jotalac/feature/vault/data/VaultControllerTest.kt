@@ -160,7 +160,8 @@ class VaultControllerTest {
         assertIs<VaultState.Unlocked>(vault.stateOf(notebook))
         assertFalse(SystemFileSystem.exists(Path(dir, "local.md")))
         assertEquals(listOf(dir), git.resetToRemotes)
-        assertEquals(listOf(dir), git.syncedPaths)
+        // the enable-time stale-clone sync plus the adopt's own sync of the restored notes
+        assertEquals(listOf(dir, dir), git.syncedPaths)
 
         // the local note came back encrypted under the next free name
         val reopened = vault.sessionForPath(dir)!!.vault
@@ -173,5 +174,53 @@ class VaultControllerTest {
             "typed offline",
             fileStore.read(dir, reopened, "local 1.md")!!.decodeToString(),
         )
+    }
+
+    @Test
+    fun `enable writes the gitignore entry that keeps the keystore out of the repository`() = runTest {
+        val notebook = device(5, "notes", withGit = true)
+        val dir = notebook.directoryPath
+
+        controller.enableEncryption(notebook, "pass").getOrThrow()
+
+        val gitignore = readNote(dir, ".gitignore")
+        assertTrue(".gw-vault/" in gitignore, "expected the vault entry in: $gitignore")
+        assertTrue(VaultLayout.keystoreExists(dir), "the local keystore copy stays")
+    }
+
+    @Test
+    fun `purging the history replaces it and force pushes the fresh commit`() = runTest {
+        val notebook = device(6, "notes", withGit = true)
+        val dir = notebook.directoryPath
+        controller.enableEncryption(notebook, "pass").getOrThrow()
+
+        controller.purgeVaultHistory(notebook).getOrThrow()
+
+        assertEquals(
+            listOf(dir to "Encrypt notes", dir to "Remove the vault keystore from history"),
+            git.resetHistories,
+        )
+        assertEquals(listOf(dir, dir), git.forcedPushes)
+        assertTrue(SystemFileSystem.exists(VaultLayout.keystorePath(Path(dir))))
+    }
+
+    @Test
+    fun `purging a notebook without git does nothing`() = runTest {
+        val notebook = device(7, "local", withGit = false)
+
+        controller.purgeVaultHistory(notebook).getOrThrow()
+
+        assertEquals(emptyList(), git.resetHistories)
+        assertEquals(emptyList(), git.forcedPushes)
+    }
+
+    @Test
+    fun `enabling on a stale clone of an encrypted notebook syncs before minting a key`() = runTest {
+        // a fresh clone reads as Off until the first pull brings the `.gwv` files in
+        val notebook = device(8, "clone", withGit = true)
+
+        controller.enableEncryption(notebook, "pass").getOrThrow()
+
+        assertEquals(listOf(notebook.directoryPath), git.syncedPaths)
     }
 }

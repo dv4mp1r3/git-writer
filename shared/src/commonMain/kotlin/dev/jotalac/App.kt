@@ -23,6 +23,7 @@ import dev.jotalac.feature.editor.ui.spellcheck.LocalSpellcheckLanguage
 import dev.jotalac.feature.editor.ui.components.LocalEditorFullWidth
 import dev.jotalac.feature.editor.ui.EditorScreen
 import dev.jotalac.feature.settings.ui.SettingsScreen
+import dev.jotalac.feature.vault.ui.VaultHistoryCleanupHost
 import org.koin.compose.koinInject
 
 @Composable
@@ -70,6 +71,9 @@ fun App(
                             SettingsScreen(onNavigateBack = { navController.popBackStack() })
                         }
                     }
+
+                    // one-time offer to purge the keystore left in a repository's history
+                    VaultHistoryCleanupHost()
                 }
             }
         }

@@ -8,9 +8,10 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 /**
- * The keystore is a small file committed next to the notes (`.gw-vault/keystore`): it holds the
- * master key wrapped by the passphrase-derived KEK. Devices learn the key by pulling the repo
- * and asking the user for the passphrase once.
+ * The keystore is a small file stored next to the notes (`.gw-vault/keystore`, kept out of git by
+ * the notebook's `.gitignore`): it holds the master key wrapped by the passphrase-derived KEK.
+ * The passphrase (and the file itself) never travels - other devices learn the key through the
+ * recovery key string or an exported keystore file, and only the encrypted notes are synced.
  */
 @Serializable
 data class VaultKeystore(
@@ -38,13 +39,15 @@ data class WrappedKey(
     @SerialName("ciphertext") val ciphertextBase64: String,
 )
 
-/** A vault opened with a passphrase or a recovery key. */
+/** A vault opened with a passphrase, a recovery key, or a key cached on the device. */
 class OpenedVault(
-    /** The keystore as committed to the repo; write this back when re-wrapping. */
-    val keystoreJson: String,
-    val keystore: VaultKeystore,
+    /** The keystore stored on this device; null when unlocked without one (no local keystore). */
+    val keystoreJson: String?,
+    val keystore: VaultKeystore?,
     val vault: UnlockedVault,
 ) {
+    constructor(vault: UnlockedVault) : this(keystoreJson = null, keystore = null, vault = vault)
+
     /** Re-wraps the same master key under a new passphrase; the data itself is not re-encrypted. */
     internal suspend fun rewrap(passphrase: String): String =
         KeystoreCodec.wrapAndSerialize(vault.keys.masterKey, passphrase, vault.keyId)
@@ -80,7 +83,8 @@ object KeystoreCodec {
     /**
      * Opens a vault whose passphrase was lost: the [recoveryKey] string decodes directly to the
      * master key, no KDF involved. A vault cannot be opened by feeding the recovery key to
-     * [unlock] - it is not a passphrase.
+     * [unlock] - it is not a passphrase. A GW2 key names its vault (embedded key id) and must
+     * match the keystore; a legacy GW1 key carries no key id and is accepted as-is.
      * @throws VaultFormatException when the keystore or the recovery key string is malformed
      */
     suspend fun unlockWithRecoveryKey(keystoreJson: String, recoveryKey: String): OpenedVault {
@@ -88,8 +92,11 @@ object KeystoreCodec {
         if (keystore.version != VaultKeystore.FORMAT_VERSION) {
             throw VaultFormatException("Unsupported keystore version: ${keystore.version}")
         }
-        val masterKey = RecoveryKeyCodec.decode(recoveryKey)
-        return OpenedVault(keystoreJson, keystore, UnlockedVault(Hex.decode(keystore.keyIdHex), VaultKeys.fromMasterKey(masterKey)))
+        val decoded = RecoveryKeyCodec.decode(recoveryKey)
+        if (decoded.keyIdHex != null && decoded.keyIdHex != keystore.keyIdHex) {
+            throw VaultFormatException("The recovery key does not open this vault")
+        }
+        return OpenedVault(keystoreJson, keystore, UnlockedVault(Hex.decode(keystore.keyIdHex), VaultKeys.fromMasterKey(decoded.masterKey)))
     }
 
     /** @return the new keystore JSON; master key and all encrypted data stay the same. */

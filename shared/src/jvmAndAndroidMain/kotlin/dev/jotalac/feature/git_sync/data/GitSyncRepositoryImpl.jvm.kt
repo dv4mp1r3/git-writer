@@ -473,6 +473,22 @@ class JGitSyncRepositoryImpl : GitSyncRepository {
         }
     }
 
+    override suspend fun untrackFile(currentNotebookPath: String, relativePath: String): Result<Boolean> =
+        withContext(Dispatchers.IO) {
+            suspendRunCatching {
+                val localRepoDir = getLocalRepoDir(currentNotebookPath)
+
+                Git.open(localRepoDir).use { git ->
+                    // an untracked path has no index entry - `git rm` on it would fail
+                    val tracked = git.repository.readDirCache().getEntry(relativePath) != null
+                    if (tracked) {
+                        git.rm().setCached(true).addFilepattern(relativePath).call()
+                    }
+                    tracked
+                }
+            }
+        }
+
     override suspend fun setRepoIdentity(currentNotebookPath: String): Result<Unit> = withContext(Dispatchers.IO) {
         suspendRunCatching {
             val localRepoDir = getLocalRepoDir(currentNotebookPath)
