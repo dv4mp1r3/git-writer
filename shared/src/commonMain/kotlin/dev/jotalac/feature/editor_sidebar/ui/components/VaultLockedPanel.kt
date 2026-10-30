@@ -23,11 +23,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import dev.jotalac.feature.vault.domain.VaultState
 import git_writer.shared.generated.resources.Res
 import git_writer.shared.generated.resources.sidebar_locked_description
 import git_writer.shared.generated.resources.sidebar_locked_title
 import git_writer.shared.generated.resources.vault_shield
+import git_writer.shared.generated.resources.vault_keystore_import_button
 import git_writer.shared.generated.resources.vault_password_label
+import git_writer.shared.generated.resources.vault_locked_no_keystore_description
 import git_writer.shared.generated.resources.vault_recovery_key_label
 import git_writer.shared.generated.resources.vault_unlock_button
 import git_writer.shared.generated.resources.vault_unlock_password_toggle
@@ -38,12 +41,17 @@ import org.jetbrains.compose.resources.stringResource
 /** Replaces the file tree while the active notebook is an encrypted vault without its key. */
 @Composable
 fun VaultLockedPanel(
+    locked: VaultState.Locked,
     busy: Boolean,
     error: String?,
     onUnlock: (input: String, isRecoveryKey: Boolean) -> Unit,
+    onImportKeystore: () -> Unit,
 ) {
     var input by remember { mutableStateOf("") }
     var useRecoveryKey by remember { mutableStateOf(false) }
+    // without a local keystore the recovery key (or an imported keystore file) is the only way in
+    val recoveryOnly = !locked.hasLocalKeystore
+    val effectiveRecovery = useRecoveryKey || recoveryOnly
 
     Column(
         modifier = Modifier
@@ -68,7 +76,7 @@ fun VaultLockedPanel(
         }
 
         Text(
-            text = stringResource(Res.string.sidebar_locked_description),
+            text = stringResource(if (recoveryOnly) Res.string.vault_locked_no_keystore_description else Res.string.sidebar_locked_description),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -77,10 +85,10 @@ fun VaultLockedPanel(
             value = input,
             onValueChange = { input = it },
             label = {
-                Text(stringResource(if (useRecoveryKey) Res.string.vault_recovery_key_label else Res.string.vault_password_label))
+                Text(stringResource(if (effectiveRecovery) Res.string.vault_recovery_key_label else Res.string.vault_password_label))
             },
             singleLine = true,
-            visualTransformation = if (useRecoveryKey) VisualTransformation.None else PasswordVisualTransformation(),
+            visualTransformation = if (effectiveRecovery) VisualTransformation.None else PasswordVisualTransformation(),
             enabled = !busy,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -94,7 +102,7 @@ fun VaultLockedPanel(
         }
 
         Button(
-            onClick = { onUnlock(input, useRecoveryKey) },
+            onClick = { onUnlock(input, effectiveRecovery) },
             enabled = input.isNotBlank() && !busy,
             modifier = Modifier.fillMaxWidth(),
         ) {
@@ -105,17 +113,29 @@ fun VaultLockedPanel(
             }
         }
 
-        TextButton(
-            onClick = {
-                useRecoveryKey = !useRecoveryKey
-                input = ""
-            },
-            enabled = !busy,
-        ) {
-            Text(
-                text = stringResource(if (useRecoveryKey) Res.string.vault_unlock_password_toggle else Res.string.vault_unlock_recovery_toggle),
-                maxLines = 1,
-            )
+        if (recoveryOnly) {
+            TextButton(
+                onClick = onImportKeystore,
+                enabled = !busy,
+            ) {
+                Text(
+                    text = stringResource(Res.string.vault_keystore_import_button),
+                    maxLines = 1,
+                )
+            }
+        } else {
+            TextButton(
+                onClick = {
+                    useRecoveryKey = !useRecoveryKey
+                    input = ""
+                },
+                enabled = !busy,
+            ) {
+                Text(
+                    text = stringResource(if (useRecoveryKey) Res.string.vault_unlock_password_toggle else Res.string.vault_unlock_recovery_toggle),
+                    maxLines = 1,
+                )
+            }
         }
     }
 }

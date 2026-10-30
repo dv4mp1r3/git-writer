@@ -58,6 +58,7 @@ import git_writer.shared.generated.resources.vault_password_too_short
 import git_writer.shared.generated.resources.vault_show_recovery_key_button
 import git_writer.shared.generated.resources.vault_unlock_button
 import git_writer.shared.generated.resources.vault_change_password_confirm
+import git_writer.shared.generated.resources.vault_change_password_local_hint
 import git_writer.shared.generated.resources.vault_change_password_title
 import git_writer.shared.generated.resources.vault_new_password_label
 import git_writer.shared.generated.resources.vault_recovery_key_description
@@ -200,9 +201,12 @@ internal fun VaultUnlockDialog(
     busy: Boolean,
     error: String?,
     description: StringResource = Res.string.vault_unlock_description,
+    /** false when the device has no local keystore - the recovery key is the only way in. */
+    allowPassword: Boolean = true,
 ) {
     var input by remember { mutableStateOf("") }
-    var useRecoveryKey by remember { mutableStateOf(false) }
+    var useRecoveryKey by remember { mutableStateOf(!allowPassword) }
+    val recoveryOnly = !allowPassword
 
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
@@ -221,14 +225,16 @@ internal fun VaultUnlockDialog(
                     label = if (useRecoveryKey) Res.string.vault_recovery_key_label else Res.string.vault_password_label,
                     visible = useRecoveryKey,
                 )
-                TextButton(onClick = {
-                    useRecoveryKey = !useRecoveryKey
-                    input = ""
-                }) {
-                    Text(
-                        text = stringResource(if (useRecoveryKey) Res.string.vault_unlock_password_toggle else Res.string.vault_unlock_recovery_toggle),
-                        maxLines = 1,
-                    )
+                if (!recoveryOnly) {
+                    TextButton(onClick = {
+                        useRecoveryKey = !useRecoveryKey
+                        input = ""
+                    }) {
+                        Text(
+                            text = stringResource(if (useRecoveryKey) Res.string.vault_unlock_password_toggle else Res.string.vault_unlock_recovery_toggle),
+                            maxLines = 1,
+                        )
+                    }
                 }
                 error?.let { VaultHintText(it, isError = true) }
             }
@@ -312,6 +318,8 @@ internal fun VaultChangePasswordDialog(
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                // the passphrase re-wraps the local keystore copy - other devices keep their own
+                VaultHintText(stringResource(Res.string.vault_change_password_local_hint))
                 VaultPasswordField(current, { current = it }, Res.string.vault_current_password_label)
                 VaultPasswordField(newPassword, { newPassword = it }, Res.string.vault_new_password_label)
                 if (newPassword.isNotEmpty() && newPassword.length < MIN_PASSWORD_LENGTH) {

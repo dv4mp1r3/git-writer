@@ -33,6 +33,10 @@ class FakeNoteVault(initialStates: Map<Long, VaultState> = emptyMap()) : NoteVau
     override suspend fun changePassphrase(notebook: Notebook, currentPassphrase: String, newPassphrase: String): Result<Unit> =
         Result.success(Unit)
 
+    override suspend fun importKeystore(notebook: Notebook, keystoreJson: String): Result<Unit> = Result.success(Unit)
+
+    override suspend fun localKeystoreJson(notebook: Notebook): Result<String?> = Result.success(null)
+
     override suspend fun exportRecoveryKey(notebook: Notebook, currentPassphrase: String): Result<String> =
         Result.success("GW1-fake")
 
