@@ -85,6 +85,17 @@ sudo apt/dnf install hunspell-es
 
 *Output location: `desktopApp/build/compose/binaries/main/`*
 
+##### Linux installers in Docker, without CI
+
+The same `.deb` / `.rpm` the release workflow produces, built locally in the same environment
+(`tools/docker-build.sh`, works for both x86_64 and arm64):
+
+```bash
+tools/docker-build.sh        # -> dist/GitWriter-<version>-linux-x86_64.{deb,rpm}
+```
+
+Details, prerequisites and troubleshooting: [`docker/README.md`](docker/README.md).
+
 #### Android Release
 
 - **Release APK**:

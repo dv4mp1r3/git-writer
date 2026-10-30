@@ -291,8 +291,6 @@ fun EditNotebookDialog(
             },
             busy = state.vaultBusy,
             error = state.vaultError,
-            // without a local keystore the passphrase has nothing to open - the recovery key is the way in
-            allowPassword = (state.vaultState as? VaultState.Locked)?.hasLocalKeystore ?: true,
         )
 
         VaultDialog.KeystoreImport -> VaultKeystoreImportDialog(
